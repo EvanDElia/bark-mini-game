@@ -2,6 +2,8 @@
 
 import type React from "react"
 import { useState, useEffect, useRef, useCallback } from "react"
+import { Folder } from "./components/folder"
+import { FolderGenerator } from "./utils/folder-generator"
 
 interface Block {
   id: string
@@ -25,6 +27,13 @@ interface HighScore {
   timestamp: number
 }
 
+interface FolderData {
+  id: string
+  title: string
+  x: number
+  y: number
+}
+
 type GameState = "waiting" | "playing" | "paused" | "gameover"
 
 export default function FruitNinjaGame() {
@@ -43,6 +52,19 @@ export default function FruitNinjaGame() {
   const [isNewHighScore, setIsNewHighScore] = useState(false)
   const [showScoresModal, setShowScoresModal] = useState(false)
   const [activeScoreTab, setActiveScoreTab] = useState<"user" | "global">("user")
+  const [folders, setFolders] = useState<FolderData[]>([])
+  const folderGeneratorRef = useRef<FolderGenerator | null>(null)
+
+  // Initialize folder generator
+  useEffect(() => {
+    folderGeneratorRef.current = new FolderGenerator(15)
+
+    // Generate some initial folders
+    if (folderGeneratorRef.current) {
+      const initialFolders = folderGeneratorRef.current.generateRandomFolders(8)
+      setFolders(initialFolders)
+    }
+  }, [])
 
   // Load high scores from localStorage on component mount
   useEffect(() => {
@@ -154,6 +176,14 @@ export default function FruitNinjaGame() {
     setBlocks((prev) => [...prev, newBlock])
   }, [generateBlock])
 
+  // Add a new folder
+  const addFolder = useCallback(() => {
+    if (folderGeneratorRef.current) {
+      const newFolder = folderGeneratorRef.current.generateFolder(`Folder ${Math.floor(Math.random() * 100)}`)
+      setFolders((prev) => [...prev, newFolder])
+    }
+  }, [])
+
   // Start the game
   const startGame = useCallback(() => {
     console.log("Starting game...")
@@ -164,6 +194,13 @@ export default function FruitNinjaGame() {
     setTrail([])
     setIsNewHighScore(false)
     setShowScoresModal(false) // Close scores modal when starting new game
+
+    // Generate some new folders when game starts
+    if (folderGeneratorRef.current) {
+      folderGeneratorRef.current.clearFolders()
+      const gameFolders = folderGeneratorRef.current.generateRandomFolders(5)
+      setFolders(gameFolders)
+    }
 
     // Spawn first block immediately
     const firstBlock = generateBlock()
@@ -293,7 +330,12 @@ export default function FruitNinjaGame() {
       setBlocks((prev) =>
         prev.map((block) => {
           if (!block.isSliced && !block.isAnimatingOut && checkCollision(mousePosition, block)) {
-            setScore((s) => s + 10)
+            // Check if the block is red (#ff6b6b) and apply negative points
+            if (block.color === "#ff6b6b") {
+              setScore((s) => s - 20) // Negative points for red blocks
+            } else {
+              setScore((s) => s + 10) // Positive points for other colors
+            }
             return { ...block, isSliced: true, isAnimatingOut: true }
           }
           return block
@@ -329,7 +371,18 @@ export default function FruitNinjaGame() {
   }, [])
 
   return (
-    <div className="w-full h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 overflow-hidden relative">
+    <div
+      className="w-full h-screen overflow-hidden relative"
+      style={{
+        backgroundImage: "url(/background.png)",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      {/* Dark overlay to ensure text readability */}
+      <div className="absolute inset-0 bg-black/20 z-0"></div>
+
       <style jsx>{`
         @keyframes spawn-in {
           0% {
@@ -368,6 +421,12 @@ export default function FruitNinjaGame() {
             >
               Spawn Block
             </button>
+            <button
+              onClick={addFolder}
+              className="bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 text-white font-bold py-2 px-6 rounded-xl transition-all duration-200 shadow-lg backdrop-blur-sm border border-white/20"
+            >
+              Add Folder
+            </button>
           </>
         )}
       </div>
@@ -376,11 +435,26 @@ export default function FruitNinjaGame() {
       {gameState === "waiting" && (
         <div className="absolute inset-0 flex items-center justify-center z-20">
           <div className="bg-gradient-to-br from-blue-400/30 to-blue-600/30 backdrop-blur-lg rounded-2xl p-8 text-center max-w-2xl border border-white/20 shadow-2xl">
-            <h1 className="text-white text-4xl font-bold mb-4">Fruit Ninja Style Game</h1>
-            <p className="text-white text-lg mb-6">
+            <h1 className="text-white text-4xl font-bold mb-4">Welcome</h1>
+            <p className="text-white text-lg mb-4">
               Click and drag your mouse over the colored blocks to slice them and earn points!
             </p>
-            <p className="text-white text-lg mb-6">You have 60 seconds to score as many points as possible!</p>
+            <p className="text-white text-lg mb-4">You have 60 seconds to score as many points as possible!</p>
+
+            <div className="flex flex-col gap-3 mb-6">
+              <div className="bg-gradient-to-r from-blue-400/10 to-blue-600/10 rounded-xl p-4 border border-blue-300/20 text-left">
+                <h3 className="text-white font-bold mb-2 text-lg">Game Rules:</h3>
+                <ul className="list-disc pl-5 space-y-2 text-white/90">
+                  <li>
+                    Regular colored blocks: <span className="text-white font-bold">+10 points</span>
+                  </li>
+                  <li>
+                    <span className="inline-block w-4 h-4 bg-[#ff6b6b] rounded-full mr-2 align-middle"></span>
+                    Red blocks: <span className="text-red-300 font-bold">-20 points</span> (avoid these!)
+                  </li>
+                </ul>
+              </div>
+            </div>
 
             {/* High Score Display */}
             {getCurrentHighScore() > 0 && (
@@ -553,12 +627,17 @@ export default function FruitNinjaGame() {
       {/* Game Area */}
       <div
         ref={gameAreaRef}
-        className={`w-full h-full relative ${gameState === "playing" ? "cursor-none" : "cursor-default"} pb-20`}
+        className={`w-full h-full relative ${gameState === "playing" ? "cursor-none" : "cursor-default"} pb-20 z-10`}
         onMouseMove={handleMouseMove}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
       >
+        {/* Folders */}
+        {folders.map((folder) => (
+          <Folder key={folder.id} title={folder.title} x={folder.x} y={folder.y} />
+        ))}
+
         {/* Blocks */}
         {blocks.map((block) => {
           // Determine animation class based on state priority
@@ -645,10 +724,9 @@ export default function FruitNinjaGame() {
       <div className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-r from-blue-400/80 via-blue-500/80 to-blue-600/80 backdrop-blur-md p-4 flex justify-between items-center border-t border-white/20 shadow-lg">
         <div className="flex items-center gap-4">
           <div className="bg-gradient-to-r from-blue-300/40 to-blue-400/40 backdrop-blur-sm rounded-xl px-4 py-2 flex items-center gap-3 border border-white/20 shadow-sm">
-            <div className="w-8 h-8 bg-gradient-to-br from-orange-400 to-red-500 rounded-full flex items-center justify-center shadow-md">
-              <span className="text-white font-bold text-sm">FN</span>
+            <div className="w-20 h-8">
+              <img src="/bark-logo.svg" alt="BARK Logo" className="w-full h-full object-contain" />
             </div>
-            <span className="text-white text-lg font-bold drop-shadow-sm">Fruit Ninja</span>
           </div>
         </div>
 
@@ -690,11 +768,11 @@ export default function FruitNinjaGame() {
           )}
 
           <div className="bg-gradient-to-r from-slate-600/60 to-slate-700/60 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20 shadow-sm">
-            <span className="text-white text-xl font-bold drop-shadow-sm">Score: {score}</span>
-          </div>
+            <span className="text-white text-xl font-bold drop-shadow-sm">Score: {score} PTS</span>
+          </div> {/* 
           <div className="bg-gradient-to-r from-slate-600/60 to-slate-700/60 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20 shadow-sm">
             <span className="text-white text-xl font-bold drop-shadow-sm">Blocks: {blocks.length}</span>
-          </div>
+          </div>  */}
           <div
             className={`bg-gradient-to-r from-slate-600/60 to-slate-700/60 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20 shadow-sm ${
               timeLeft <= 10 ? "animate-pulse from-red-500/60 to-red-600/60" : ""
