@@ -406,24 +406,24 @@ export default function FruitNinjaGame() {
       `}</style>
 
       {/* Game Controls */}
-      <div className="absolute top-4 right-4 z-10 flex gap-2 flex-col">
+      <div className="absolute z-50 top-4 right-4 flex gap-2 flex-col">
         {gameState === "playing" && (
           <>
             <button
               onClick={stopGame}
-              className="bg-gradient-to-r from-red-400 to-red-600 hover:from-red-500 hover:to-red-700 text-white font-bold py-2 px-6 rounded-xl transition-all duration-200 shadow-lg backdrop-blur-sm border border-white/20"
+              className="z-50 bg-gradient-to-r from-red-400 to-red-600 hover:from-red-500 hover:to-red-700 text-white font-bold py-2 px-6 rounded-xl transition-all duration-200 shadow-lg backdrop-blur-sm border border-white/20"
             >
               Stop Game
             </button>
             <button
               onClick={spawnTestBlock}
-              className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white font-bold py-2 px-6 rounded-xl transition-all duration-200 shadow-lg backdrop-blur-sm border border-white/20"
+              className="z-50 bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white font-bold py-2 px-6 rounded-xl transition-all duration-200 shadow-lg backdrop-blur-sm border border-white/20"
             >
               Spawn Block
             </button>
             <button
               onClick={addFolder}
-              className="bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 text-white font-bold py-2 px-6 rounded-xl transition-all duration-200 shadow-lg backdrop-blur-sm border border-white/20"
+              className="z-50 bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 text-white font-bold py-2 px-6 rounded-xl transition-all duration-200 shadow-lg backdrop-blur-sm border border-white/20"
             >
               Add Folder
             </button>
@@ -498,7 +498,7 @@ export default function FruitNinjaGame() {
 
             {/* High Scores List */}
             {highScores.length > 0 && (
-              <div className="mb-8 bg-gradient-to-r from-blue-400/10 to-blue-600/10 rounded-xl p-4 border border-blue-300/20">
+              <div className="mb-8 z-50 bg-gradient-to-r from-blue-400/10 to-blue-600/10 rounded-xl p-4 border border-blue-300/20">
                 <h3 className="text-white text-lg font-bold mb-3">High Scores</h3>
                 <div className="space-y-2 max-h-40 overflow-y-auto">
                   {highScores.slice(0, 5).map((highScore, index) => (
