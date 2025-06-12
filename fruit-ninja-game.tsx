@@ -497,15 +497,15 @@ export default function FruitNinjaGame() {
       <style jsx>{`
         @keyframes spawn-in {
           0% {
-            transform: scale(0) rotate(-180deg);
+            transform: scale(0) translateY(190px);
             opacity: 0;
           }
           50% {
-            transform: scale(1.2) rotate(-90deg);
+            transform: scale(1.07) translateY(0px);
             opacity: 0.8;
           }
           100% {
-            transform: scale(1) rotate(0deg);
+            transform: scale(1);
             opacity: 0.8;
           }
         }
@@ -741,7 +741,7 @@ export default function FruitNinjaGame() {
       {/* Game Area */}
       <div
         ref={gameAreaRef}
-        className={`w-full h-full relative ${gameState === "playing" ? "cursor-none" : "cursor-default"} pb-20 z-10`}
+        className={`w-full h-full relative ${gameState === "playing" ? "cursor-none" : "cursor-default"} pb-20 z-10 select-none`}
         onMouseMove={handleMouseMove}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
