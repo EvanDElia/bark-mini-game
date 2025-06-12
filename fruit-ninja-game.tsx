@@ -14,6 +14,7 @@ interface Block {
   isSliced: boolean
   justSpawned: boolean
   isAnimatingOut: boolean
+  spawnTime: number // Add spawn time to track when block was created
 }
 
 interface MousePosition {
@@ -47,6 +48,7 @@ export default function FruitNinjaGame() {
   const gameAreaRef = useRef<HTMLDivElement>(null)
   const spawnIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const redBlockTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [highScores, setHighScores] = useState<HighScore[]>([])
   const [isNewHighScore, setIsNewHighScore] = useState(false)
@@ -107,6 +109,8 @@ export default function FruitNinjaGame() {
       const isNewHigh = updatedScores.findIndex((score) => score.timestamp === newHighScore.timestamp) < 3
       setIsNewHighScore(isNewHigh)
 
+      console.log(updatedScores);
+
       saveHighScores(updatedScores)
     },
     [highScores, saveHighScores],
@@ -166,6 +170,7 @@ export default function FruitNinjaGame() {
       isSliced: false,
       justSpawned: true,
       isAnimatingOut: false,
+      spawnTime: Date.now(), // Track when the block was created
     }
   }, [colors])
 
@@ -175,6 +180,38 @@ export default function FruitNinjaGame() {
     console.log("Spawning test block:", newBlock)
     setBlocks((prev) => [...prev, newBlock])
   }, [generateBlock])
+
+  // Check for expired red blocks every second
+  useEffect(() => {
+    if (gameState === "playing") {
+      const checkExpiredBlocks = () => {
+        const currentTime = Date.now()
+        setBlocks((prev) =>
+          prev.map((block) => {
+            // If it's a red block and it's been 8 seconds since spawn, mark it for removal
+            if (
+              block.color === "#ff6b6b" &&
+              !block.isSliced &&
+              !block.isAnimatingOut &&
+              currentTime - block.spawnTime >= 8000
+            ) {
+              return { ...block, isAnimatingOut: true }
+            }
+            return block
+          }),
+        )
+      }
+
+      redBlockTimeoutRef.current = setInterval(checkExpiredBlocks, 100) // Check every 100ms for smooth removal
+
+      return () => {
+        if (redBlockTimeoutRef.current) {
+          clearInterval(redBlockTimeoutRef.current)
+          redBlockTimeoutRef.current = null
+        }
+      }
+    }
+  }, [gameState])
 
   // Add a new folder
   const addFolder = useCallback(() => {
@@ -189,7 +226,7 @@ export default function FruitNinjaGame() {
     console.log("Starting game...")
     setGameState("playing")
     setScore(0)
-    setTimeLeft(60) // Reset timer to 60 seconds
+    setTimeLeft(40) // Reset timer to 60 seconds
     setBlocks([])
     setTrail([])
     setIsNewHighScore(false)
@@ -224,6 +261,7 @@ export default function FruitNinjaGame() {
 
     // Start timer countdown
     timerIntervalRef.current = setInterval(() => {
+      console.log(score);
       setTimeLeft((prevTime) => {
         if (prevTime <= 1) {
           // Game over when timer reaches 0
@@ -256,6 +294,11 @@ export default function FruitNinjaGame() {
       clearInterval(timerIntervalRef.current)
       timerIntervalRef.current = null
     }
+
+    if (redBlockTimeoutRef.current) {
+      clearInterval(redBlockTimeoutRef.current)
+      redBlockTimeoutRef.current = null
+    }
   }, [score, addHighScore])
 
   // Stop the game
@@ -274,6 +317,11 @@ export default function FruitNinjaGame() {
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current)
       timerIntervalRef.current = null
+    }
+
+    if (redBlockTimeoutRef.current) {
+      clearInterval(redBlockTimeoutRef.current)
+      redBlockTimeoutRef.current = null
     }
   }, [])
 
@@ -324,6 +372,11 @@ export default function FruitNinjaGame() {
     setTrail([])
   }, [])
 
+  // Check for end game
+  useEffect(() => {
+    if (gameState == "gameover") endGame();
+  }, [gameState])
+
   // Check for slicing when mouse moves
   useEffect(() => {
     if (isMouseDown && gameState === "playing") {
@@ -332,7 +385,7 @@ export default function FruitNinjaGame() {
           if (!block.isSliced && !block.isAnimatingOut && checkCollision(mousePosition, block)) {
             // Check if the block is red (#ff6b6b) and apply negative points
             if (block.color === "#ff6b6b") {
-              setScore((s) => s - 20) // Negative points for red blocks
+              setScore((s) => s - 10) // Negative points for red blocks
             } else {
               setScore((s) => s + 10) // Positive points for other colors
             }
@@ -354,19 +407,20 @@ export default function FruitNinjaGame() {
   }, [blocks])
 
   // Remove justSpawned flag after spawn animation
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      setBlocks((prev) => prev.map((block) => ({ ...block, justSpawned: false })))
-    }, 300)
+  // useEffect(() => {
+  //   const timeout = setTimeout(() => {
+  //     setBlocks((prev) => prev.map((block) => ({ ...block, justSpawned: false })))
+  //   }, 500)
 
-    return () => clearTimeout(timeout)
-  }, [blocks])
+  //   return () => clearTimeout(timeout)
+  // }, [blocks])
 
   // Clean up intervals on unmount
   useEffect(() => {
     return () => {
       if (spawnIntervalRef.current) clearInterval(spawnIntervalRef.current)
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current)
+      if (redBlockTimeoutRef.current) clearInterval(redBlockTimeoutRef.current)
     }
   }, [])
 
@@ -446,11 +500,14 @@ export default function FruitNinjaGame() {
                 <h3 className="text-white font-bold mb-2 text-lg">Game Rules:</h3>
                 <ul className="list-disc pl-5 space-y-2 text-white/90">
                   <li>
-                    Regular colored blocks: <span className="text-white font-bold">+10 points</span>
+                    Regular colored blocks: <span className="text-white font-bold">+20 points</span>
                   </li>
                   <li>
                     <span className="inline-block w-4 h-4 bg-[#ff6b6b] rounded-full mr-2 align-middle"></span>
                     Red blocks: <span className="text-red-300 font-bold">-20 points</span> (avoid these!)
+                  </li>
+                  <li>
+                    <span className="text-yellow-300 font-bold">Red blocks disappear after 8 seconds</span>
                   </li>
                 </ul>
               </div>
@@ -644,6 +701,10 @@ export default function FruitNinjaGame() {
           let animationClass = "scale-100 opacity-100"
           let animationStyle = {}
 
+          if (Date.now() - block.spawnTime >= 510 && block.justSpawned) {
+            block.justSpawned = false;
+          }
+
           if (block.isAnimatingOut) {
             // Animation out takes priority
             animationClass = "scale-150 opacity-0 rotate-45 transition-all duration-500"
@@ -651,6 +712,7 @@ export default function FruitNinjaGame() {
             // Spawn animation
             animationClass = "scale-0 opacity-0"
             animationStyle = { animation: "spawn-in 0.4s ease-out forwards" }
+            
           } else {
             // Normal state
             animationClass = "scale-100 opacity-100 hover:scale-105 transition-all duration-200"
