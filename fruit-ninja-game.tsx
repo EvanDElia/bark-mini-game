@@ -44,6 +44,8 @@ export default function FruitNinjaGame() {
   const [gameState, setGameState] = useState<GameState>("waiting")
   const [blocks, setBlocks] = useState<Block[]>([])
   const [score, setScore] = useState(0)
+  const [prevScore, setPrevScore] = useState(0)
+  const [scoreAnimation, setScoreAnimation] = useState<"increase" | "decrease" | null>(null)
   const [timeLeft, setTimeLeft] = useState(60) // 60 seconds timer
   const [mousePosition, setMousePosition] = useState<MousePosition>({ x: 0, y: 0 })
   const [isMouseDown, setIsMouseDown] = useState(false)
@@ -105,6 +107,26 @@ export default function FruitNinjaGame() {
       }
     }
   }, [])
+
+  // Detect score changes and trigger animations
+  useEffect(() => {
+    if (score > prevScore) {
+      setScoreAnimation("increase")
+    } else if (score < prevScore) {
+      setScoreAnimation("decrease")
+    }
+
+    // Reset animation after it plays
+    if (scoreAnimation) {
+      const timer = setTimeout(() => {
+        setScoreAnimation(null)
+      }, 500) // Animation duration
+
+      return () => clearTimeout(timer)
+    }
+
+    setPrevScore(score)
+  }, [score, prevScore, scoreAnimation])
 
   // Save high scores to localStorage
   const saveHighScores = useCallback((scores: HighScore[]) => {
@@ -285,8 +307,7 @@ export default function FruitNinjaGame() {
     setShowIntroModal(false)
     if (gameState === "paused") {
       setGameState("playing")
-      timerIntervalRef.current =
-      setInterval(() => {
+      timerIntervalRef.current = setInterval(() => {
         setTimeLeft((prevTime) => {
           const newTime = prevTime - 1
 
@@ -370,35 +391,33 @@ export default function FruitNinjaGame() {
 
     // Start block spawning with initial rate
     const initialSpawnInterval = baseSpawnIntervalRef.current
-    spawnIntervalRef.current =
-      setInterval(() => {
-            setBlocks((prev) => {
-              const filtered = prev.filter((block) => !block.isSliced && !block.isAnimatingOut)
-              if (filtered.length < 5) {
-                const newBlock = generateBlock()
-                return [...filtered, newBlock]
-              }
-              return filtered
-            })
-          }, initialSpawnInterval)
+    spawnIntervalRef.current = setInterval(() => {
+      setBlocks((prev) => {
+        const filtered = prev.filter((block) => !block.isSliced && !block.isAnimatingOut)
+        if (filtered.length < 5) {
+          const newBlock = generateBlock()
+          return [...filtered, newBlock]
+        }
+        return filtered
+      })
+    }, initialSpawnInterval)
 
     // Start timer countdown
-    timerIntervalRef.current =
-      setInterval(() => {
-            setTimeLeft((prevTime) => {
-              const newTime = prevTime - 1
+    timerIntervalRef.current = setInterval(() => {
+      setTimeLeft((prevTime) => {
+        const newTime = prevTime - 1
 
-              // Update spawn rate based on time left
-              updateSpawnRate(newTime)
+        // Update spawn rate based on time left
+        updateSpawnRate(newTime)
 
-              if (newTime <= 0) {
-                // Game over when timer reaches 0
-                endGame()
-                return 0
-              }
-              return newTime
-            })
-          }, 1000)
+        if (newTime <= 0) {
+          // Game over when timer reaches 0
+          endGame()
+          return 0
+        }
+        return newTime
+      })
+    }, 1000)
   }, [generateBlock, updateSpawnRate, gameState])
 
   // End the game
@@ -613,28 +632,142 @@ export default function FruitNinjaGame() {
           25% { transform: scale(1.1) rotate(-5deg); }
           75% { transform: scale(1.1) rotate(5deg); }
         }
+        @keyframes score-increase {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.3); color: #4ade80; }
+          100% { transform: scale(1); }
+        }
+
+        @keyframes score-decrease {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.3); color: #f87171; }
+          100% { transform: scale(1); }
+        }
+        
+        .score-increase {
+          animation: score-increase 0.5s ease-in-out;
+        }
+
+        .score-decrease {
+          animation: score-decrease 0.5s ease-in-out;
+        }
+
+        /* System UI Modal Styles */
+        .system-modal {
+          background: linear-gradient(to bottom, #1a365d50, #2a4365ff);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+          border-radius: 8px;
+          overflow: hidden;
+          backdrop-filter: blur(3px);
+          padding: 8px;
+          max-height: 88vh;
+          overflow-y:auto;
+          margin-bottom: 70px;
+        }
+
+        .system-modal-content {
+          background-color: #f0f4f8f0;
+          border-radius: 0 0 8px 8px;
+          color: #1a202c;
+        }
+
+        .system-modal-header {
+          padding: 10px 15px;
+          position: relative;
+        }
+
+        .system-modal-title {
+          color: white;
+          font-weight: bold;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        }
+
+        .system-close-button {
+          position: absolute;
+          top: 0;
+          right: 0;
+          background: linear-gradient(to bottom, #e53e3e, #c53030);
+          border: 1px solid rgba(255, 255, 255, 0.3);
+          color: white;
+          width: 32px;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 4px;
+          font-weight: bold;
+          font-size: 18px;
+          cursor: pointer;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+          margin: 10px;
+        }
+
+        .system-close-button:hover {
+          background: linear-gradient(to bottom, #f56565, #e53e3e);
+        }
+
+        .system-button {
+          background: linear-gradient(to bottom, #3182ce, #2b6cb0);
+          border: 1px solid rgba(255, 255, 255, 0.3);
+          color: white;
+          font-weight: bold;
+          padding: 8px 16px;
+          border-radius: 50px;
+          cursor: pointer;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 
+                      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+          transition: all 0.2s;
+        }
+
+        .system-button:hover {
+          background: linear-gradient(to bottom, #4299e1, #3182ce);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3), 
+                      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        }
+
+        .system-button:active {
+          background: linear-gradient(to bottom, #2b6cb0, #2c5282);
+          box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+          transform: translateY(1px);
+        }
+
+        .system-button-green {
+          background: linear-gradient(to bottom, #38a169, #2f855a);
+        }
+
+        .system-button-green:hover {
+          background: linear-gradient(to bottom, #48bb78, #38a169);
+        }
+
+        .system-button-green:active {
+          background: linear-gradient(to bottom, #2f855a, #276749);
+        }
+
+        .system-button-red {
+          background: linear-gradient(to bottom, #e53e3e, #c53030);
+        }
+
+        .system-button-red:hover {
+          background: linear-gradient(to bottom, #f56565, #e53e3e);
+        }
+
+        .system-button-red:active {
+          background: linear-gradient(to bottom, #c53030, #9b2c2c);
+        }
       `}</style>
 
       {/* Game Controls */}
       <div className="absolute z-50 top-4 right-4 flex gap-2 flex-col">
         {gameState === "playing" && (
           <>
-            <button
-              onClick={stopGame}
-              className="z-50 bg-gradient-to-r from-red-400 to-red-600 hover:from-red-500 hover:to-red-700 text-white font-bold py-2 px-6 rounded-xl transition-all duration-200 shadow-lg backdrop-blur-sm border border-white/20"
-            >
+            <button onClick={stopGame} className="z-50 system-button system-button-red">
               Stop Game
             </button>
-            <button
-              onClick={spawnTestBlock}
-              className="z-50 bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white font-bold py-2 px-6 rounded-xl transition-all duration-200 shadow-lg backdrop-blur-sm border border-white/20"
-            >
+            <button onClick={spawnTestBlock} className="z-50 system-button">
               Spawn Block
             </button>
-            <button
-              onClick={addFolder}
-              className="z-50 bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 text-white font-bold py-2 px-6 rounded-xl transition-all duration-200 shadow-lg backdrop-blur-sm border border-white/20"
-            >
+            <button onClick={addFolder} className="z-50 system-button system-button-green">
               Add Folder
             </button>
           </>
@@ -644,48 +777,50 @@ export default function FruitNinjaGame() {
       {/* Instructions */}
       {gameState === "waiting" && (
         <div className="absolute inset-0 flex items-center justify-center z-50">
-          <div className="bg-gradient-to-br from-blue-400/30 to-blue-600/30 backdrop-blur-lg rounded-2xl p-8 text-center max-w-2xl border border-white/20 shadow-2xl">
-            <h1 className="text-white text-4xl font-bold mb-4">Welcome</h1>
-            <p className="text-white text-lg mb-4">
-              Click and drag your mouse over the colored blocks to close them and earn points!
-            </p>
-            <p className="text-white text-lg mb-4">You have 60 seconds to score as many points as possible!</p>
-
-            <div className="flex flex-col gap-3 mb-6">
-              <div className="bg-gradient-to-r from-blue-400/10 to-blue-600/10 rounded-xl p-4 border border-blue-300/20 text-left">
-                <h3 className="text-white font-bold mb-2 text-lg">Game Rules:</h3>
-                <ul className="list-disc pl-5 space-y-2 text-white/90">
-                  <li>
-                    Regular colored blocks: <span className="text-white font-bold">+10 points</span>
-                  </li>
-                  <li>
-                    <span className="inline-block w-4 h-4 bg-[#ff6b6b] rounded-full mr-2 align-middle"></span>
-                    <span className="text-red-300 font-bold">Red blocks: -10 points</span> (avoid these!)
-                  </li>
-                  <li>
-                    <span className="text-yellow-300 font-bold">Red blocks disappear after 8 seconds</span>
-                  </li>
-                  <li>
-                    <span className="text-blue-300 font-bold">Blocks spawn faster</span> as time runs out!
-                  </li>
-                </ul>
-              </div>
+          <div className="system-modal max-w-2xl w-full">
+            <div className="system-modal-header">
+              <h1 className="system-modal-title text-2xl">Welcome</h1>
             </div>
+            <div className="system-modal-content p-8 text-center">
+              <h1 className="text-slate-800 text-4xl font-bold mb-4">BARK Mini-Game</h1>
+              <p className="text-slate-700 text-lg mb-4">
+                Click and drag your mouse over the colored blocks to close them and earn points!
+              </p>
+              <p className="text-slate-700 text-lg mb-4">You have 60 seconds to score as many points as possible!</p>
 
-            {/* High Score Display */}
-            {getCurrentHighScore() > 0 && (
-              <div className="bg-gradient-to-r from-yellow-400/20 to-orange-400/20 rounded-xl p-4 mb-6 border border-yellow-300/30">
-                <p className="text-yellow-200 text-sm mb-1">Current High Score</p>
-                <p className="text-white text-3xl font-bold">{getCurrentHighScore()}</p>
+              <div className="flex flex-col gap-3 mb-6">
+                <div className="bg-blue-50 rounded-xl p-4 border border-blue-200 text-left">
+                  <h3 className="text-slate-800 font-bold mb-2 text-lg">Game Rules:</h3>
+                  <ul className="list-disc pl-5 space-y-2 text-slate-700">
+                    <li>
+                      Regular colored blocks: <span className="text-slate-900 font-bold">+10 points</span>
+                    </li>
+                    <li>
+                      <span className="inline-block w-4 h-4 bg-[#ff6b6b] rounded-full mr-2 align-middle"></span>
+                      <span className="text-red-600 font-bold">Red blocks: -10 points</span> (avoid these!)
+                    </li>
+                    <li>
+                      <span className="text-amber-600 font-bold">Red blocks disappear after 8 seconds</span>
+                    </li>
+                    <li>
+                      <span className="text-blue-600 font-bold">Blocks spawn faster</span> as time runs out!
+                    </li>
+                  </ul>
+                </div>
               </div>
-            )}
 
-            <button
-              onClick={startGame}
-              className="bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 text-white font-bold py-3 px-8 rounded-xl transition-all duration-200 shadow-lg text-xl border border-white/20"
-            >
-              Start Playing
-            </button>
+              {/* High Score Display */}
+              {getCurrentHighScore() > 0 && (
+                <div className="bg-amber-50 rounded-xl p-4 mb-6 border border-amber-200">
+                  <p className="text-amber-700 text-sm mb-1">Current High Score</p>
+                  <p className="text-slate-800 text-3xl font-bold">{getCurrentHighScore()}</p>
+                </div>
+              )}
+
+              <button onClick={startGame} className="system-button system-button-green text-xl px-8 py-3">
+                Start Playing
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -693,50 +828,45 @@ export default function FruitNinjaGame() {
       {/* Intro Modal - Can be shown during gameplay */}
       {showIntroModal && (
         <div className="absolute inset-0 flex items-center justify-center z-50">
-          <div className="bg-gradient-to-br from-blue-400/30 to-blue-600/30 backdrop-blur-lg rounded-2xl p-8 text-center max-w-2xl border border-white/20 shadow-2xl">
-            {/* Close button */}
-            <div className="flex justify-end mb-4">
-              <button
-                onClick={closeIntroAndResume}
-                className="text-white/60 hover:text-white transition-colors duration-200 text-2xl"
-              >
+          <div className="system-modal max-w-2xl w-full">
+            <div className="system-modal-header">
+              <h1 className="system-modal-title text-2xl">Instructions</h1>
+              <button onClick={closeIntroAndResume} className="system-close-button">
                 ✕
               </button>
             </div>
+            <div className="system-modal-content p-8 text-center">
+              <h1 className="text-slate-800 text-4xl font-bold mb-4">Game Instructions</h1>
+              <p className="text-slate-700 text-lg mb-4">
+                Click and drag your mouse over the colored blocks to close them and earn points!
+              </p>
+              <p className="text-slate-700 text-lg mb-4">You have 60 seconds to score as many points as possible!</p>
 
-            <h1 className="text-white text-4xl font-bold mb-4">Game Instructions</h1>
-            <p className="text-white text-lg mb-4">
-              Click and drag your mouse over the colored blocks to close them and earn points!
-            </p>
-            <p className="text-white text-lg mb-4">You have 60 seconds to score as many points as possible!</p>
-
-            <div className="flex flex-col gap-3 mb-6">
-              <div className="bg-gradient-to-r from-blue-400/10 to-blue-600/10 rounded-xl p-4 border border-blue-300/20 text-left">
-                <h3 className="text-white font-bold mb-2 text-lg">Game Rules:</h3>
-                <ul className="list-disc pl-5 space-y-2 text-white/90">
-                  <li>
-                    Regular colored blocks: <span className="text-white font-bold">+10 points</span>
-                  </li>
-                  <li>
-                    <span className="inline-block w-4 h-4 bg-[#ff6b6b] rounded-full mr-2 align-middle"></span>
-                    <span className="text-red-300 font-bold">Red blocks: -10 points</span> (avoid these!)
-                  </li>
-                  <li>
-                    <span className="text-yellow-300 font-bold">Red blocks disappear after 8 seconds</span>
-                  </li>
-                  <li>
-                    <span className="text-blue-300 font-bold">Blocks spawn faster</span> as time runs out!
-                  </li>
-                </ul>
+              <div className="flex flex-col gap-3 mb-6">
+                <div className="bg-blue-50 rounded-xl p-4 border border-blue-200 text-left">
+                  <h3 className="text-slate-800 font-bold mb-2 text-lg">Game Rules:</h3>
+                  <ul className="list-disc pl-5 space-y-2 text-slate-700">
+                    <li>
+                      Regular colored blocks: <span className="text-slate-900 font-bold">+10 points</span>
+                    </li>
+                    <li>
+                      <span className="inline-block w-4 h-4 bg-[#ff6b6b] rounded-full mr-2 align-middle"></span>
+                      <span className="text-red-600 font-bold">Red blocks: -10 points</span> (avoid these!)
+                    </li>
+                    <li>
+                      <span className="text-amber-600 font-bold">Red blocks disappear after 8 seconds</span>
+                    </li>
+                    <li>
+                      <span className="text-blue-600 font-bold">Blocks spawn faster</span> as time runs out!
+                    </li>
+                  </ul>
+                </div>
               </div>
-            </div>
 
-            <button
-              onClick={closeIntroAndResume}
-              className="bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 text-white font-bold py-3 px-8 rounded-xl transition-all duration-200 shadow-lg text-xl border border-white/20"
-            >
-              {gameState === "paused" ? "Resume Game" : "Close"}
-            </button>
+              <button onClick={closeIntroAndResume} className="system-button text-xl px-8 py-3">
+                {gameState === "paused" ? "Resume Game" : "Close"}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -744,54 +874,53 @@ export default function FruitNinjaGame() {
       {/* Game Over Modal */}
       {gameState === "gameover" && !showScoresModal && (
         <div className="absolute inset-0 flex items-center justify-center z-50">
-          <div className="bg-gradient-to-br from-slate-700/90 to-slate-900/90 backdrop-blur-lg rounded-2xl p-10 text-center max-w-2xl border border-white/20 shadow-2xl">
-            <h1 className="text-white text-5xl font-bold mb-4">Game Over!</h1>
-
-            {/* New High Score Celebration */}
-            {isNewHighScore && (
-              <div
-                className="mb-6 p-4 bg-gradient-to-r from-yellow-400/20 to-orange-400/20 rounded-xl border border-yellow-300/30"
-                style={{ animation: "celebration 0.6s ease-in-out" }}
-              >
-                <p className="text-yellow-300 text-xl font-bold mb-2">🎉 NEW HIGH SCORE! 🎉</p>
-                <p className="text-white text-sm">You made it to the top 3!</p>
-              </div>
-            )}
-
-            <div className="mb-8 mt-6">
-              <div className="text-white text-7xl font-bold mb-2">{score}</div>
-              <p className="text-white/80 text-xl">Final Score</p>
+          <div className="system-modal max-w-2xl w-full">
+            <div className="system-modal-header">
+              <h1 className="system-modal-title text-2xl">Game Over</h1>
             </div>
+            <div className="system-modal-content p-8 text-center">
+              <h1 className="text-slate-800 text-5xl font-bold mb-4">Game Over!</h1>
 
-            {/* High Scores List */}
-            {highScores.length > 0 && (
-              <div className="mb-8 bg-gradient-to-r from-blue-400/10 to-blue-600/10 rounded-xl p-4 border border-blue-300/20">
-                <h3 className="text-white text-lg font-bold mb-3">High Scores</h3>
-                <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {highScores.slice(0, 5).map((highScore, index) => (
-                    <div key={highScore.timestamp} className="flex justify-between items-center text-sm">
-                      <span className="text-white/80">#{index + 1}</span>
-                      <span className="text-white font-bold">{highScore.score}</span>
-                      <span className="text-white/60">{highScore.date}</span>
-                    </div>
-                  ))}
+              {/* New High Score Celebration */}
+              {isNewHighScore && (
+                <div
+                  className="mb-6 p-4 bg-amber-50 rounded-xl border border-amber-200"
+                  style={{ animation: "celebration 0.6s ease-in-out" }}
+                >
+                  <p className="text-amber-600 text-xl font-bold mb-2">🎉 NEW HIGH SCORE! 🎉</p>
+                  <p className="text-slate-700 text-sm">You made it to the top 3!</p>
                 </div>
-              </div>
-            )}
+              )}
 
-            <div className="flex gap-4">
-              <button
-                onClick={startGame}
-                className="bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 text-white font-bold py-4 px-8 rounded-xl transition-all duration-200 shadow-lg text-xl border border-white/20 flex-1"
-              >
-                Play Again
-              </button>
-              <button
-                onClick={() => setShowScoresModal(true)}
-                className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white font-bold py-4 px-8 rounded-xl transition-all duration-200 shadow-lg text-xl border border-white/20 flex-1"
-              >
-                Scores
-              </button>
+              <div className="mb-8 mt-6">
+                <div className="text-slate-800 text-7xl font-bold mb-2">{score}</div>
+                <p className="text-slate-600 text-xl">Final Score</p>
+              </div>
+
+              {/* High Scores List */}
+              {highScores.length > 0 && (
+                <div className="mb-8 bg-blue-50 rounded-xl p-4 border border-blue-200">
+                  <h3 className="text-slate-800 text-lg font-bold mb-3">High Scores</h3>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {highScores.slice(0, 5).map((highScore, index) => (
+                      <div key={highScore.timestamp} className="flex justify-between items-center text-sm">
+                        <span className="text-slate-600">#{index + 1}</span>
+                        <span className="text-slate-800 font-bold">{highScore.score}</span>
+                        <span className="text-slate-500">{highScore.date}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-4">
+                <button onClick={startGame} className="system-button system-button-green text-xl px-8 py-4 flex-1">
+                  Play Again
+                </button>
+                <button onClick={() => setShowScoresModal(true)} className="system-button text-xl px-8 py-4 flex-1">
+                  Scores
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -800,92 +929,88 @@ export default function FruitNinjaGame() {
       {/* Scores Modal */}
       {showScoresModal && (
         <div className="absolute inset-0 flex items-center justify-center z-50">
-          <div className="bg-gradient-to-br from-slate-700/95 to-slate-900/95 backdrop-blur-lg rounded-2xl p-8 max-w-4xl w-full mx-4 border border-white/20 shadow-2xl max-h-[80vh] overflow-hidden">
-            {/* Modal Header */}
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-white text-3xl font-bold">High Scores</h2>
-              <button
-                onClick={() => setShowScoresModal(false)}
-                className="text-white/60 hover:text-white transition-colors duration-200 text-2xl"
-              >
+          <div className="system-modal max-w-4xl w-full mx-4 max-h-[80vh] overflow-hidden">
+            <div className="system-modal-header">
+              <h1 className="system-modal-title text-2xl">High Scores</h1>
+              <button onClick={() => setShowScoresModal(false)} className="system-close-button">
                 ✕
               </button>
             </div>
+            <div className="system-modal-content p-8">
+              {/* Tab Navigation */}
+              <div className="flex mb-6 bg-slate-100 rounded-xl p-1 border border-slate-200">
+                <button
+                  onClick={() => setActiveScoreTab("user")}
+                  className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
+                    activeScoreTab === "user"
+                      ? "system-button"
+                      : "text-slate-600 hover:text-slate-800 hover:bg-slate-200"
+                  }`}
+                >
+                  User
+                </button>
+                <button
+                  onClick={() => setActiveScoreTab("global")}
+                  className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
+                    activeScoreTab === "global"
+                      ? "system-button"
+                      : "text-slate-600 hover:text-slate-800 hover:bg-slate-200"
+                  }`}
+                >
+                  Global
+                </button>
+              </div>
 
-            {/* Tab Navigation */}
-            <div className="flex mb-6 bg-gradient-to-r from-slate-600/40 to-slate-700/40 rounded-xl p-1 border border-white/10">
-              <button
-                onClick={() => setActiveScoreTab("user")}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeScoreTab === "user"
-                    ? "bg-gradient-to-r from-blue-400 to-blue-600 text-white shadow-lg"
-                    : "text-white/70 hover:text-white hover:bg-white/10"
-                }`}
-              >
-                User
-              </button>
-              <button
-                onClick={() => setActiveScoreTab("global")}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeScoreTab === "global"
-                    ? "bg-gradient-to-r from-blue-400 to-blue-600 text-white shadow-lg"
-                    : "text-white/70 hover:text-white hover:bg-white/10"
-                }`}
-              >
-                Global
-              </button>
-            </div>
-
-            {/* Tab Content */}
-            <div className="overflow-y-auto max-h-96">
-              {activeScoreTab === "user" && (
-                <div>
-                  {highScores.length > 0 ? (
-                    <div className="space-y-3">
-                      {highScores.map((highScore, index) => (
-                        <div
-                          key={highScore.timestamp}
-                          className="bg-gradient-to-r from-blue-400/10 to-blue-600/10 rounded-xl p-4 border border-blue-300/20 flex justify-between items-center"
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="w-8 h-8 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center font-bold text-white text-sm">
-                              #{index + 1}
+              {/* Tab Content */}
+              <div className="overflow-y-auto max-h-96">
+                {activeScoreTab === "user" && (
+                  <div>
+                    {highScores.length > 0 ? (
+                      <div className="space-y-3">
+                        {highScores.map((highScore, index) => (
+                          <div
+                            key={highScore.timestamp}
+                            className="bg-blue-50 rounded-xl p-4 border border-blue-200 flex justify-between items-center"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className="w-8 h-8 bg-gradient-to-r from-amber-400 to-amber-500 rounded-full flex items-center justify-center font-bold text-white text-sm">
+                                #{index + 1}
+                              </div>
+                              <div>
+                                <div className="text-slate-800 text-xl font-bold">{highScore.score}</div>
+                                <div className="text-slate-500 text-sm">{highScore.date}</div>
+                              </div>
                             </div>
-                            <div>
-                              <div className="text-white text-xl font-bold">{highScore.score}</div>
-                              <div className="text-white/60 text-sm">{highScore.date}</div>
-                            </div>
+                            {index === 0 && <div className="text-amber-500 text-2xl">👑</div>}
                           </div>
-                          {index === 0 && <div className="text-yellow-400 text-2xl">👑</div>}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-12">
-                      <div className="text-white/60 text-xl mb-2">No scores yet!</div>
-                      <div className="text-white/40">Play a game to see your scores here.</div>
-                    </div>
-                  )}
-                </div>
-              )}
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-12">
+                        <div className="text-slate-500 text-xl mb-2">No scores yet!</div>
+                        <div className="text-slate-400">Play a game to see your scores here.</div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
-              {activeScoreTab === "global" && (
-                <div className="text-center py-12">
-                  <div className="text-white/60 text-xl mb-2">Global Leaderboard</div>
-                  <div className="text-white/40">Coming soon...</div>
-                  <div className="mt-6 text-white/30 text-sm">Global scores will be available in a future update!</div>
-                </div>
-              )}
-            </div>
+                {activeScoreTab === "global" && (
+                  <div className="text-center py-12">
+                    <div className="text-slate-500 text-xl mb-2">Global Leaderboard</div>
+                    <div className="text-slate-400">Coming soon...</div>
+                    <div className="mt-6 text-slate-300 text-sm">
+                      Global scores will be available in a future update!
+                    </div>
+                  </div>
+                )}
+              </div>
 
-            {/* Modal Footer */}
-            <div className="mt-6 pt-6 border-t border-white/10">
-              <button
-                onClick={() => setShowScoresModal(false)}
-                className="w-full bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white font-bold py-3 px-6 rounded-xl transition-all duration-200 border border-white/20"
-              >
-                Close
-              </button>
+              {/* Modal Footer */}
+              <div className="mt-6 pt-6 border-t border-slate-200">
+                <button onClick={() => setShowScoresModal(false)} className="w-full system-button py-3 px-6">
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1014,11 +1139,18 @@ export default function FruitNinjaGame() {
       {/* Footer with Logo, Score and Timer - Matching the reference image style */}
       <div
         className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-r from-blue-400/80 via-blue-500/80 to-blue-600/80 backdrop-blur-md flex justify-between items-center shadow-lg"
-        style={{ fontFamily: "Orbitron, monospace", zIndex: 100, backgroundImage: `url('/footer-bg.png')`, backgroundSize: '100% 100%' }}
+        style={{
+          fontFamily: "Orbitron, monospace",
+          zIndex: 100,
+          backgroundImage: `url('/footer-bg.png')`,
+          backgroundSize: "100% 100%",
+        }}
       >
         <div className="flex items-center gap-4">
-          <div className="bg-gradient-to-r from-blue-300/40 to-blue-400/40 backdrop-blur-sm rounded-xl px-4 py-2 flex items-center gap-3 shadow-sm"
-          style={{backgroundImage: `url('/footer-bg.png')`, backgroundSize: '100% 100%'}}>
+          <div
+            className="bg-gradient-to-r from-blue-300/40 to-blue-400/40 backdrop-blur-sm rounded-xl px-4 py-2 flex items-center gap-3 shadow-sm"
+            style={{ backgroundImage: `url('/footer-bg.png')`, backgroundSize: "100% 100%" }}
+          >
             <div className="w-20 h-12">
               <img src="/bark-logo.svg" alt="BARK Logo" className="w-full h-full object-contain" />
             </div>
@@ -1057,7 +1189,10 @@ export default function FruitNinjaGame() {
               </svg>
             ) : (
               <svg className="w-5 h-5 text-white drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 20 20">
-                <path fill="#ffffff" d="m13.28 7.78l3.22-3.22v2.69a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.69l-3.22 3.22a.75.75 0 0 0 1.06 1.06ZM2 17.25v-4.5a.75.75 0 0 1 1.5 0v2.69l3.22-3.22a.75.75 0 0 1 1.06 1.06L4.56 16.5h2.69a.75.75 0 0 1 0 1.5h-4.5a.747.747 0 0 1-.75-.75Zm10.22-3.97l3.22 3.22h-2.69a.75.75 0 0 0 0 1.5h4.5a.747.747 0 0 0 .75-.75v-4.5a.75.75 0 0 0-1.5 0v2.69l-3.22-3.22a.75.75 0 1 0-1.06 1.06ZM3.5 4.56l3.22 3.22a.75.75 0 0 0 1.06-1.06L4.56 3.5h2.69a.75.75 0 0 0 0-1.5h-4.5a.75.75 0 0 0-.75.75v4.5a.75.75 0 0 0 1.5 0V4.56Z"></path>
+                <path
+                  fill="#ffffff"
+                  d="m13.28 7.78l3.22-3.22v2.69a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.69l-3.22 3.22a.75.75 0 0 0 1.06 1.06ZM2 17.25v-4.5a.75.75 0 0 1 1.5 0v2.69l3.22-3.22a.75.75 0 0 1 1.06 1.06L4.56 16.5h2.69a.75.75 0 0 1 0 1.5h-4.5a.747.747 0 0 1-.75-.75Zm10.22-3.97l3.22 3.22h-2.69a.75.75 0 0 0 0 1.5h4.5a.747.747 0 0 0 .75-.75v-4.5a.75.75 0 0 0-1.5 0v2.69l-3.22-3.22a.75.75 0 1 0-1.06 1.06ZM3.5 4.56l3.22 3.22a.75.75 0 0 0 1.06-1.06L4.56 3.5h2.69a.75.75 0 0 0 0-1.5h-4.5a.75.75 0 0 0-.75.75v4.5a.75.75 0 0 0 1.5 0V4.56Z"
+                ></path>
               </svg>
             )}
             <span className="text-white text-sm font-medium drop-shadow-sm">
@@ -1073,7 +1208,13 @@ export default function FruitNinjaGame() {
           )}
 
           <div className="bg-gradient-to-r from-slate-600/60 to-slate-700/60 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20 shadow-sm">
-            <span className="text-white text-xl font-bold drop-shadow-sm">{score} pts</span>
+            <span
+              className={`text-white text-xl font-bold drop-shadow-sm ${
+                scoreAnimation === "increase" ? "score-increase" : scoreAnimation === "decrease" ? "score-decrease" : ""
+              }`}
+            >
+              {score} pts
+            </span>
           </div>
           <div
             className={`bg-gradient-to-r from-slate-600/60 to-slate-700/60 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20 shadow-sm ${
