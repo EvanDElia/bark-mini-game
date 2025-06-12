@@ -1012,11 +1012,12 @@ export default function FruitNinjaGame() {
 
       {/* Footer with Logo, Score and Timer - Matching the reference image style */}
       <div
-        className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-r from-blue-400/80 via-blue-500/80 to-blue-600/80 backdrop-blur-md p-4 flex justify-between items-center border-t border-white/20 shadow-lg"
-        style={{ fontFamily: "Orbitron, monospace", zIndex: 100 }}
+        className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-r from-blue-400/80 via-blue-500/80 to-blue-600/80 backdrop-blur-md p-4 flex justify-between items-center shadow-lg"
+        style={{ fontFamily: "Orbitron, monospace", zIndex: 100, backgroundImage: `url('/footer-bg.png')`, backgroundSize: '100% 100%' }}
       >
         <div className="flex items-center gap-4">
-          <div className="bg-gradient-to-r from-blue-300/40 to-blue-400/40 backdrop-blur-sm rounded-xl px-4 py-2 flex items-center gap-3 border border-white/20 shadow-sm">
+          <div className="bg-gradient-to-r from-blue-300/40 to-blue-400/40 backdrop-blur-sm rounded-xl px-4 py-2 flex items-center gap-3 border border-white/20 shadow-sm"
+          style={{backgroundImage: `url('/footer-bg.png')`, backgroundSize: '100% 100%'}}>
             <div className="w-20 h-8">
               <img src="/bark-logo.svg" alt="BARK Logo" className="w-full h-full object-contain" />
             </div>
@@ -1041,7 +1042,7 @@ export default function FruitNinjaGame() {
 
           <button
             onClick={toggleFullscreen}
-            className="bg-gradient-to-r from-blue-300/40 to-blue-400/40 backdrop-blur-sm rounded-xl px-4 py-2 hover:from-blue-200/50 hover:to-blue-300/50 transition-all duration-200 flex items-center gap-2 border border-white/20 shadow-sm"
+            className="bg-gradient-to-r from-blue-600/40 to-blue-400/40 backdrop-blur-sm rounded-xl px-4 py-2 hover:from-blue-200/50 hover:to-blue-300/50 transition-all duration-200 flex items-center gap-2 border border-white/20 shadow-sm"
             title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
           >
             {isFullscreen ? (
