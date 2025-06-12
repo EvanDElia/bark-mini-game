@@ -498,7 +498,7 @@ export default function FruitNinjaGame() {
 
             {/* High Scores List */}
             {highScores.length > 0 && (
-              <div className="mb-8 z-50 bg-gradient-to-r from-blue-400/10 to-blue-600/10 rounded-xl p-4 border border-blue-300/20">
+              <div className="mb-8 bg-gradient-to-r from-blue-400/10 to-blue-600/10 rounded-xl p-4 border border-blue-300/20">
                 <h3 className="text-white text-lg font-bold mb-3">High Scores</h3>
                 <div className="space-y-2 max-h-40 overflow-y-auto">
                   {highScores.slice(0, 5).map((highScore, index) => (
@@ -532,7 +532,7 @@ export default function FruitNinjaGame() {
 
       {/* Scores Modal */}
       {showScoresModal && (
-        <div className="absolute inset-0 flex items-center justify-center z-160">
+        <div className="absolute inset-0 flex items-center justify-center z-50">
           <div className="bg-gradient-to-br from-slate-700/95 to-slate-900/95 backdrop-blur-lg rounded-2xl p-8 max-w-4xl w-full mx-4 border border-white/20 shadow-2xl max-h-[80vh] overflow-hidden">
             {/* Modal Header */}
             <div className="flex justify-between items-center mb-6">
