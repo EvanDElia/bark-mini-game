@@ -14,7 +14,10 @@ interface Block {
   isSliced: boolean
   justSpawned: boolean
   isAnimatingOut: boolean
-  spawnTime: number // Add spawn time to track when block was created
+  spawnTime: number
+  title: string
+  description: string
+  iconType: "star" | "people" | "skull"
 }
 
 interface MousePosition {
@@ -56,6 +59,24 @@ export default function FruitNinjaGame() {
   const [activeScoreTab, setActiveScoreTab] = useState<"user" | "global">("user")
   const [folders, setFolders] = useState<FolderData[]>([])
   const folderGeneratorRef = useRef<FolderGenerator | null>(null)
+
+  // Block titles and descriptions
+  const blockTitles = ["Task", "Project", "Meeting", "Reminder", "Event", "Alert", "Update", "Message"]
+
+  const blockDescriptions = [
+    "High priority",
+    "Due today",
+    "Needs review",
+    "In progress",
+    "Completed",
+    "New item",
+    "Pending",
+    "Urgent",
+  ]
+
+  const dangerTitles = ["Warning", "Danger", "Critical", "Alert", "Error"]
+
+  const dangerDescriptions = ["System failure", "Security breach", "Fatal error", "Data loss", "Malfunction"]
 
   // Initialize folder generator
   useEffect(() => {
@@ -109,7 +130,7 @@ export default function FruitNinjaGame() {
       const isNewHigh = updatedScores.findIndex((score) => score.timestamp === newHighScore.timestamp) < 3
       setIsNewHighScore(isNewHigh)
 
-      console.log(updatedScores);
+      console.log(updatedScores)
 
       saveHighScores(updatedScores)
     },
@@ -161,18 +182,40 @@ export default function FruitNinjaGame() {
     const width = window.innerWidth
     const height = window.innerHeight
 
+    // Randomly select color
+    const colorIndex = Math.floor(Math.random() * colors.length)
+    const color = colors[colorIndex]
+
+    // Determine if this is a red block
+    const isRedBlock = color === "#ff6b6b"
+
+    // Select appropriate title and description based on block type
+    const title = isRedBlock
+      ? dangerTitles[Math.floor(Math.random() * dangerTitles.length)]
+      : blockTitles[Math.floor(Math.random() * blockTitles.length)]
+
+    const description = isRedBlock
+      ? dangerDescriptions[Math.floor(Math.random() * dangerDescriptions.length)]
+      : blockDescriptions[Math.floor(Math.random() * blockDescriptions.length)]
+
+    // Determine icon type
+    const iconType = isRedBlock ? "skull" : Math.random() > 0.5 ? "star" : "people"
+
     return {
       id: Math.random().toString(36).substr(2, 9),
-      x: Math.random() * (width - 120) + 20, // Add some padding
+      x: Math.random() * (width - 200) + 20, // Add some padding
       y: Math.random() * (height - 300) + 100, // Increased bottom padding to avoid footer
-      color: colors[Math.floor(Math.random() * colors.length)],
-      size: 80, // Fixed size for now
+      color: color,
+      size: 120, // Increased size to accommodate text
       isSliced: false,
       justSpawned: true,
       isAnimatingOut: false,
       spawnTime: Date.now(), // Track when the block was created
+      title: title,
+      description: description,
+      iconType: iconType,
     }
-  }, [colors])
+  }, [colors, blockTitles, blockDescriptions, dangerTitles, dangerDescriptions])
 
   // Manual spawn for testing
   const spawnTestBlock = useCallback(() => {
@@ -226,7 +269,7 @@ export default function FruitNinjaGame() {
     console.log("Starting game...")
     setGameState("playing")
     setScore(0)
-    setTimeLeft(40) // Reset timer to 60 seconds
+    setTimeLeft(60) // Reset timer to 60 seconds
     setBlocks([])
     setTrail([])
     setIsNewHighScore(false)
@@ -261,7 +304,7 @@ export default function FruitNinjaGame() {
 
     // Start timer countdown
     timerIntervalRef.current = setInterval(() => {
-      console.log(score);
+      console.log(score)
       setTimeLeft((prevTime) => {
         if (prevTime <= 1) {
           // Game over when timer reaches 0
@@ -353,10 +396,17 @@ export default function FruitNinjaGame() {
 
   // Check collision between mouse and blocks
   const checkCollision = useCallback((mousePos: MousePosition, block: Block) => {
-    const distance = Math.sqrt(
-      Math.pow(mousePos.x - (block.x + block.size / 2), 2) + Math.pow(mousePos.y - (block.y + block.size / 2), 2),
-    )
-    return distance < block.size / 2
+    const blockCenterX = block.x + block.size // Center X for double-width block
+    const blockCenterY = block.y + block.size / 2 // Center Y
+
+    // Calculate distances in both x and y directions independently
+    const deltaX = Math.abs(mousePos.x - blockCenterX)
+    const deltaY = Math.abs(mousePos.y - blockCenterY)
+
+    // Check if mouse is within the rectangular bounds
+    // Width is double the size (block.size * 2), so half-width is block.size
+    // Height is block.size, so half-height is block.size / 2
+    return deltaX <= block.size && deltaY <= block.size / 2
   }, [])
 
   // Handle mouse down
@@ -374,7 +424,7 @@ export default function FruitNinjaGame() {
 
   // Check for end game
   useEffect(() => {
-    if (gameState == "gameover") endGame();
+    if (gameState == "gameover") endGame()
   }, [gameState])
 
   // Check for slicing when mouse moves
@@ -407,13 +457,20 @@ export default function FruitNinjaGame() {
   }, [blocks])
 
   // Remove justSpawned flag after spawn animation
-  // useEffect(() => {
-  //   const timeout = setTimeout(() => {
-  //     setBlocks((prev) => prev.map((block) => ({ ...block, justSpawned: false })))
-  //   }, 500)
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setBlocks((prev) =>
+        prev.map((block) => {
+          if (block.justSpawned) {
+            return { ...block, justSpawned: false }
+          }
+          return block
+        }),
+      )
+    }, 500)
 
-  //   return () => clearTimeout(timeout)
-  // }, [blocks])
+    return () => clearTimeout(timeout)
+  }, [blocks])
 
   // Clean up intervals on unmount
   useEffect(() => {
@@ -449,7 +506,7 @@ export default function FruitNinjaGame() {
           }
           100% {
             transform: scale(1) rotate(0deg);
-            opacity: 1;
+            opacity: 0.8;
           }
         }
         @keyframes celebration {
@@ -500,11 +557,11 @@ export default function FruitNinjaGame() {
                 <h3 className="text-white font-bold mb-2 text-lg">Game Rules:</h3>
                 <ul className="list-disc pl-5 space-y-2 text-white/90">
                   <li>
-                    Regular colored blocks: <span className="text-white font-bold">+20 points</span>
+                    Regular colored blocks: <span className="text-white font-bold">+10 points</span>
                   </li>
                   <li>
                     <span className="inline-block w-4 h-4 bg-[#ff6b6b] rounded-full mr-2 align-middle"></span>
-                    Red blocks: <span className="text-red-300 font-bold">-20 points</span> (avoid these!)
+                    Red blocks: <span className="text-red-300 font-bold">-10 points</span> (avoid these!)
                   </li>
                   <li>
                     <span className="text-yellow-300 font-bold">Red blocks disappear after 8 seconds</span>
@@ -702,7 +759,7 @@ export default function FruitNinjaGame() {
           let animationStyle = {}
 
           if (Date.now() - block.spawnTime >= 510 && block.justSpawned) {
-            block.justSpawned = false;
+            block.justSpawned = false
           }
 
           if (block.isAnimatingOut) {
@@ -712,39 +769,57 @@ export default function FruitNinjaGame() {
             // Spawn animation
             animationClass = "scale-0 opacity-0"
             animationStyle = { animation: "spawn-in 0.4s ease-out forwards" }
-            
           } else {
             // Normal state
-            animationClass = "scale-100 opacity-100 hover:scale-105 transition-all duration-200"
+            animationClass = "scale-100 opacity-80 hover:scale-105 transition-all duration-200"
           }
+
+          // Determine which icon to use
+          const iconSrc =
+            block.iconType === "skull" ? "/skull.png" : block.iconType === "star" ? "/star.png" : "/people.png"
 
           return (
             <div
               key={block.id}
-              className={`absolute rounded-xl shadow-2xl border-2 border-white/30 ${animationClass}`}
+              className={`absolute rounded-xl shadow-2xl border-2 border-white/30 ${animationClass} overflow-hidden`}
               style={{
                 left: `${block.x}px`,
                 top: `${block.y}px`,
-                width: `${block.size}px`,
+                width: `${block.size * 2}px`,
                 height: `${block.size}px`,
                 backgroundColor: block.color,
                 zIndex: 10,
                 ...animationStyle,
               }}
             >
-              {/* Inner shine effect */}
-              <div
-                className="absolute inset-2 rounded-lg opacity-40"
-                style={{
-                  background: "linear-gradient(135deg, rgba(255,255,255,0.9) 0%, transparent 60%)",
-                }}
-              />
-              {/* Center dot for visibility */}
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full" />
+              {/* Block content with icon and text */}
+              <div className="w-full h-full flex items-center p-3 relative">
+                {/* Icon - centered vertically */}
+                <div className="w-12 h-12 flex-shrink-0">
+                  <img
+                    src={iconSrc || "/placeholder.svg"}
+                    alt={block.iconType}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+
+                {/* Text content - left aligned, black text */}
+                <div className="flex flex-col justify-center ml-3 flex-1">
+                  <h3 className="text-black font-bold text-sm mb-1">{block.title}</h3>
+                  <p className="text-black/80 text-xs">{block.description}</p>
+                </div>
+
+                {/* Inner shine effect */}
+                <div
+                  className="absolute inset-0 rounded-lg opacity-20 pointer-events-none"
+                  style={{
+                    background: "linear-gradient(135deg, rgba(255,255,255,0.9) 0%, transparent)",
+                  }}
+                ></div>
+              </div>
             </div>
           )
         })}
-
         {/* Mouse trail */}
         {gameState === "playing" &&
           trail.map((pos, index) => (
@@ -831,10 +906,7 @@ export default function FruitNinjaGame() {
 
           <div className="bg-gradient-to-r from-slate-600/60 to-slate-700/60 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20 shadow-sm">
             <span className="text-white text-xl font-bold drop-shadow-sm">Score: {score} PTS</span>
-          </div> {/* 
-          <div className="bg-gradient-to-r from-slate-600/60 to-slate-700/60 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20 shadow-sm">
-            <span className="text-white text-xl font-bold drop-shadow-sm">Blocks: {blocks.length}</span>
-          </div>  */}
+          </div>
           <div
             className={`bg-gradient-to-r from-slate-600/60 to-slate-700/60 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20 shadow-sm ${
               timeLeft <= 10 ? "animate-pulse from-red-500/60 to-red-600/60" : ""
