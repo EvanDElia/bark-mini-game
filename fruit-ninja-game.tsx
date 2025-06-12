@@ -60,7 +60,7 @@ export default function FruitNinjaGame() {
   const [folders, setFolders] = useState<FolderData[]>([])
   const folderGeneratorRef = useRef<FolderGenerator | null>(null)
   const spawnRateMultiplierRef = useRef<number>(1) // Track spawn rate multiplier: 1 = normal, 2 = twice as fast, 3 = three times as fast
-  const baseSpawnIntervalRef = useRef<number>(1500) // Base spawn interval in ms (1000ms + 500ms random)
+  const baseSpawnIntervalRef = useRef<number>(1500 + Math.random() * 400) // Base spawn interval in ms (1000ms + 500ms random)
   const [showIntroModal, setShowIntroModal] = useState(false)
 
   // Block titles and descriptions
@@ -647,7 +647,7 @@ export default function FruitNinjaGame() {
           <div className="bg-gradient-to-br from-blue-400/30 to-blue-600/30 backdrop-blur-lg rounded-2xl p-8 text-center max-w-2xl border border-white/20 shadow-2xl">
             <h1 className="text-white text-4xl font-bold mb-4">Welcome</h1>
             <p className="text-white text-lg mb-4">
-              Click and drag your mouse over the colored blocks to slice them and earn points!
+              Click and drag your mouse over the colored blocks to close them and earn points!
             </p>
             <p className="text-white text-lg mb-4">You have 60 seconds to score as many points as possible!</p>
 
@@ -706,7 +706,7 @@ export default function FruitNinjaGame() {
 
             <h1 className="text-white text-4xl font-bold mb-4">Game Instructions</h1>
             <p className="text-white text-lg mb-4">
-              Click and drag your mouse over the colored blocks to slice them and earn points!
+              Click and drag your mouse over the colored blocks to close them and earn points!
             </p>
             <p className="text-white text-lg mb-4">You have 60 seconds to score as many points as possible!</p>
 
@@ -1013,7 +1013,7 @@ export default function FruitNinjaGame() {
       {/* Footer with Logo, Score and Timer - Matching the reference image style */}
       <div
         className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-r from-blue-400/80 via-blue-500/80 to-blue-600/80 backdrop-blur-md p-4 flex justify-between items-center border-t border-white/20 shadow-lg"
-        style={{ fontFamily: "Orbitron, monospace" }}
+        style={{ fontFamily: "Orbitron, monospace", zIndex: 100 }}
       >
         <div className="flex items-center gap-4">
           <div className="bg-gradient-to-r from-blue-300/40 to-blue-400/40 backdrop-blur-sm rounded-xl px-4 py-2 flex items-center gap-3 border border-white/20 shadow-sm">
@@ -1054,13 +1054,8 @@ export default function FruitNinjaGame() {
                 />
               </svg>
             ) : (
-              <svg className="w-5 h-5 text-white drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15m-5.25 5.25v-4.5m0 4.5h4.5m-4.5 0L9 15"
-                />
+              <svg className="w-5 h-5 text-white drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 20 20">
+                <path fill="#ffffff" d="m13.28 7.78l3.22-3.22v2.69a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.69l-3.22 3.22a.75.75 0 0 0 1.06 1.06ZM2 17.25v-4.5a.75.75 0 0 1 1.5 0v2.69l3.22-3.22a.75.75 0 0 1 1.06 1.06L4.56 16.5h2.69a.75.75 0 0 1 0 1.5h-4.5a.747.747 0 0 1-.75-.75Zm10.22-3.97l3.22 3.22h-2.69a.75.75 0 0 0 0 1.5h4.5a.747.747 0 0 0 .75-.75v-4.5a.75.75 0 0 0-1.5 0v2.69l-3.22-3.22a.75.75 0 1 0-1.06 1.06ZM3.5 4.56l3.22 3.22a.75.75 0 0 0 1.06-1.06L4.56 3.5h2.69a.75.75 0 0 0 0-1.5h-4.5a.75.75 0 0 0-.75.75v4.5a.75.75 0 0 0 1.5 0V4.56Z"></path>
               </svg>
             )}
             <span className="text-white text-sm font-medium drop-shadow-sm">
