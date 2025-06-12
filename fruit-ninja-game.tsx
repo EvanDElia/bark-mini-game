@@ -1013,19 +1013,19 @@ export default function FruitNinjaGame() {
 
       {/* Footer with Logo, Score and Timer - Matching the reference image style */}
       <div
-        className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-r from-blue-400/80 via-blue-500/80 to-blue-600/80 backdrop-blur-md p-4 flex justify-between items-center shadow-lg"
+        className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-r from-blue-400/80 via-blue-500/80 to-blue-600/80 backdrop-blur-md flex justify-between items-center shadow-lg"
         style={{ fontFamily: "Orbitron, monospace", zIndex: 100, backgroundImage: `url('/footer-bg.png')`, backgroundSize: '100% 100%' }}
       >
         <div className="flex items-center gap-4">
-          <div className="bg-gradient-to-r from-blue-300/40 to-blue-400/40 backdrop-blur-sm rounded-xl px-4 py-2 flex items-center gap-3 border border-white/20 shadow-sm"
+          <div className="bg-gradient-to-r from-blue-300/40 to-blue-400/40 backdrop-blur-sm rounded-xl px-4 py-2 flex items-center gap-3 shadow-sm"
           style={{backgroundImage: `url('/footer-bg.png')`, backgroundSize: '100% 100%'}}>
-            <div className="w-20 h-8">
+            <div className="w-20 h-12">
               <img src="/bark-logo.svg" alt="BARK Logo" className="w-full h-full object-contain" />
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 p-2">
           {/* Difficulty indicator - only show during gameplay */}
           {gameState === "playing" && (
             <div
