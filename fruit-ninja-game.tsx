@@ -59,6 +59,9 @@ export default function FruitNinjaGame() {
   const [activeScoreTab, setActiveScoreTab] = useState<"user" | "global">("user")
   const [folders, setFolders] = useState<FolderData[]>([])
   const folderGeneratorRef = useRef<FolderGenerator | null>(null)
+  const spawnRateMultiplierRef = useRef<number>(1) // Track spawn rate multiplier: 1 = normal, 2 = twice as fast, 3 = three times as fast
+  const baseSpawnIntervalRef = useRef<number>(1500) // Base spawn interval in ms (1000ms + 500ms random)
+  const [showIntroModal, setShowIntroModal] = useState(false)
 
   // Block titles and descriptions
   const blockTitles = ["Task", "Project", "Meeting", "Reminder", "Event", "Alert", "Update", "Message"]
@@ -203,10 +206,10 @@ export default function FruitNinjaGame() {
 
     return {
       id: Math.random().toString(36).substr(2, 9),
-      x: Math.random() * (width - 200) + 20, // Add some padding
+      x: Math.random() * (width - 300) + 20, // Add some padding
       y: Math.random() * (height - 300) + 100, // Increased bottom padding to avoid footer
       color: color,
-      size: 120, // Increased size to accommodate text
+      size: 100, // Increased size to accommodate text
       isSliced: false,
       justSpawned: true,
       isAnimatingOut: false,
@@ -223,6 +226,83 @@ export default function FruitNinjaGame() {
     console.log("Spawning test block:", newBlock)
     setBlocks((prev) => [...prev, newBlock])
   }, [generateBlock])
+
+  // Update spawn rate based on time left
+  const updateSpawnRate = useCallback(
+    (secondsLeft: number) => {
+      let newMultiplier = 1
+
+      if (secondsLeft <= 10) {
+        newMultiplier = 3 // Three times as fast when 10 seconds or less remain
+      } else if (secondsLeft <= 30) {
+        newMultiplier = 2 // Twice as fast when 30 seconds or less remain
+      }
+
+      // Only update if the multiplier has changed
+      if (newMultiplier !== spawnRateMultiplierRef.current) {
+        spawnRateMultiplierRef.current = newMultiplier
+
+        // restart the spawn interval with the new rate
+        if (spawnIntervalRef.current) {
+          clearInterval(spawnIntervalRef.current)
+
+          // Calculate new spawn interval based on multiplier
+          const newInterval = baseSpawnIntervalRef.current / newMultiplier
+          console.log(newInterval)
+
+          spawnIntervalRef.current = setInterval(() => {
+            setBlocks((prev) => {
+              const filtered = prev.filter((block) => !block.isSliced && !block.isAnimatingOut)
+              if (filtered.length < 5) {
+                const newBlock = generateBlock()
+                return [...filtered, newBlock]
+              }
+              return filtered
+            })
+          }, newInterval)
+
+          console.log(`Spawn rate updated: ${newMultiplier}x faster (every ${newInterval}ms)`)
+        }
+      }
+    },
+    [generateBlock, setBlocks],
+  )
+
+  // Show intro modal and pause game
+  const showIntroAndPause = useCallback(() => {
+    if (gameState === "playing") {
+      setGameState("paused")
+    }
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current)
+      timerIntervalRef.current = null
+    }
+    setShowIntroModal(true)
+  }, [gameState])
+
+  // Close intro modal and resume game
+  const closeIntroAndResume = useCallback(() => {
+    setShowIntroModal(false)
+    if (gameState === "paused") {
+      setGameState("playing")
+    }
+    timerIntervalRef.current =
+      setInterval(() => {
+            setTimeLeft((prevTime) => {
+              const newTime = prevTime - 1
+
+              // Update spawn rate based on time left
+              updateSpawnRate(newTime)
+
+              if (newTime <= 0) {
+                // Game over when timer reaches 0
+                endGame()
+                return 0
+              }
+              return newTime
+            })
+          }, 1000)
+  }, [gameState])
 
   // Check for expired red blocks every second
   useEffect(() => {
@@ -274,6 +354,7 @@ export default function FruitNinjaGame() {
     setTrail([])
     setIsNewHighScore(false)
     setShowScoresModal(false) // Close scores modal when starting new game
+    spawnRateMultiplierRef.current = 1 // Reset spawn rate multiplier
 
     // Generate some new folders when game starts
     if (folderGeneratorRef.current) {
@@ -287,34 +368,38 @@ export default function FruitNinjaGame() {
     console.log("First block:", firstBlock)
     setBlocks([firstBlock])
 
-    // Start block spawning
-    spawnIntervalRef.current = setInterval(
-      () => {
-        setBlocks((prev) => {
-          const filtered = prev.filter((block) => !block.isSliced && !block.isAnimatingOut)
-          if (filtered.length < 5) {
-            const newBlock = generateBlock()
-            return [...filtered, newBlock]
-          }
-          return filtered
-        })
-      },
-      1000 + Math.random() * 500,
-    )
+    // Start block spawning with initial rate
+    const initialSpawnInterval = baseSpawnIntervalRef.current
+    spawnIntervalRef.current =
+      setInterval(() => {
+            setBlocks((prev) => {
+              const filtered = prev.filter((block) => !block.isSliced && !block.isAnimatingOut)
+              if (filtered.length < 5) {
+                const newBlock = generateBlock()
+                return [...filtered, newBlock]
+              }
+              return filtered
+            })
+          }, initialSpawnInterval)
 
     // Start timer countdown
-    timerIntervalRef.current = setInterval(() => {
-      console.log(score)
-      setTimeLeft((prevTime) => {
-        if (prevTime <= 1) {
-          // Game over when timer reaches 0
-          endGame()
-          return 0
-        }
-        return prevTime - 1
-      })
-    }, 1000)
-  }, [generateBlock])
+    timerIntervalRef.current =
+      setInterval(() => {
+            setTimeLeft((prevTime) => {
+              const newTime = prevTime - 1
+
+              // Update spawn rate based on time left
+              updateSpawnRate(newTime)
+
+              if (newTime <= 0) {
+                // Game over when timer reaches 0
+                endGame()
+                return 0
+              }
+              return newTime
+            })
+          }, 1000)
+  }, [generateBlock, updateSpawnRate, gameState])
 
   // End the game
   const endGame = useCallback(() => {
@@ -481,6 +566,20 @@ export default function FruitNinjaGame() {
     }
   }, [])
 
+  // Get difficulty level text based on spawn rate multiplier
+  const getDifficultyText = useCallback(() => {
+    switch (spawnRateMultiplierRef.current) {
+      case 1:
+        return "Normal"
+      case 2:
+        return "Fast"
+      case 3:
+        return "Extreme"
+      default:
+        return "Normal"
+    }
+  }, [])
+
   return (
     <div
       className="w-full h-screen overflow-hidden relative"
@@ -544,7 +643,7 @@ export default function FruitNinjaGame() {
 
       {/* Instructions */}
       {gameState === "waiting" && (
-        <div className="absolute inset-0 flex items-center justify-center z-20">
+        <div className="absolute inset-0 flex items-center justify-center z-50">
           <div className="bg-gradient-to-br from-blue-400/30 to-blue-600/30 backdrop-blur-lg rounded-2xl p-8 text-center max-w-2xl border border-white/20 shadow-2xl">
             <h1 className="text-white text-4xl font-bold mb-4">Welcome</h1>
             <p className="text-white text-lg mb-4">
@@ -561,10 +660,13 @@ export default function FruitNinjaGame() {
                   </li>
                   <li>
                     <span className="inline-block w-4 h-4 bg-[#ff6b6b] rounded-full mr-2 align-middle"></span>
-                    Red blocks: <span className="text-red-300 font-bold">-10 points</span> (avoid these!)
+                    <span className="text-red-300 font-bold">Red blocks: -10 points</span> (avoid these!)
                   </li>
                   <li>
                     <span className="text-yellow-300 font-bold">Red blocks disappear after 8 seconds</span>
+                  </li>
+                  <li>
+                    <span className="text-blue-300 font-bold">Blocks spawn faster</span> as time runs out!
                   </li>
                 </ul>
               </div>
@@ -583,6 +685,57 @@ export default function FruitNinjaGame() {
               className="bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 text-white font-bold py-3 px-8 rounded-xl transition-all duration-200 shadow-lg text-xl border border-white/20"
             >
               Start Playing
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Intro Modal - Can be shown during gameplay */}
+      {showIntroModal && (
+        <div className="absolute inset-0 flex items-center justify-center z-50">
+          <div className="bg-gradient-to-br from-blue-400/30 to-blue-600/30 backdrop-blur-lg rounded-2xl p-8 text-center max-w-2xl border border-white/20 shadow-2xl">
+            {/* Close button */}
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={closeIntroAndResume}
+                className="text-white/60 hover:text-white transition-colors duration-200 text-2xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            <h1 className="text-white text-4xl font-bold mb-4">Game Instructions</h1>
+            <p className="text-white text-lg mb-4">
+              Click and drag your mouse over the colored blocks to slice them and earn points!
+            </p>
+            <p className="text-white text-lg mb-4">You have 60 seconds to score as many points as possible!</p>
+
+            <div className="flex flex-col gap-3 mb-6">
+              <div className="bg-gradient-to-r from-blue-400/10 to-blue-600/10 rounded-xl p-4 border border-blue-300/20 text-left">
+                <h3 className="text-white font-bold mb-2 text-lg">Game Rules:</h3>
+                <ul className="list-disc pl-5 space-y-2 text-white/90">
+                  <li>
+                    Regular colored blocks: <span className="text-white font-bold">+10 points</span>
+                  </li>
+                  <li>
+                    <span className="inline-block w-4 h-4 bg-[#ff6b6b] rounded-full mr-2 align-middle"></span>
+                    <span className="text-red-300 font-bold">Red blocks: -10 points</span> (avoid these!)
+                  </li>
+                  <li>
+                    <span className="text-yellow-300 font-bold">Red blocks disappear after 8 seconds</span>
+                  </li>
+                  <li>
+                    <span className="text-blue-300 font-bold">Blocks spawn faster</span> as time runs out!
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <button
+              onClick={closeIntroAndResume}
+              className="bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 text-white font-bold py-3 px-8 rounded-xl transition-all duration-200 shadow-lg text-xl border border-white/20"
+            >
+              {gameState === "paused" ? "Resume Game" : "Close"}
             </button>
           </div>
         </div>
@@ -858,7 +1011,10 @@ export default function FruitNinjaGame() {
       </div>
 
       {/* Footer with Logo, Score and Timer - Matching the reference image style */}
-      <div className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-r from-blue-400/80 via-blue-500/80 to-blue-600/80 backdrop-blur-md p-4 flex justify-between items-center border-t border-white/20 shadow-lg">
+      <div
+        className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-r from-blue-400/80 via-blue-500/80 to-blue-600/80 backdrop-blur-md p-4 flex justify-between items-center border-t border-white/20 shadow-lg"
+        style={{ fontFamily: "Orbitron, monospace" }}
+      >
         <div className="flex items-center gap-4">
           <div className="bg-gradient-to-r from-blue-300/40 to-blue-400/40 backdrop-blur-sm rounded-xl px-4 py-2 flex items-center gap-3 border border-white/20 shadow-sm">
             <div className="w-20 h-8">
@@ -868,6 +1024,21 @@ export default function FruitNinjaGame() {
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Difficulty indicator - only show during gameplay */}
+          {gameState === "playing" && (
+            <div
+              className={`backdrop-blur-sm rounded-xl px-4 py-2 border shadow-sm transition-all duration-300 ${
+                spawnRateMultiplierRef.current === 1
+                  ? "bg-green-500/40 border-green-300/30"
+                  : spawnRateMultiplierRef.current === 2
+                    ? "bg-yellow-500/40 border-yellow-300/30"
+                    : "bg-red-500/40 border-red-300/30"
+              }`}
+            >
+              <span className="text-white text-sm font-medium drop-shadow-sm">{getDifficultyText()} Speed</span>
+            </div>
+          )}
+
           <button
             onClick={toggleFullscreen}
             className="bg-gradient-to-r from-blue-300/40 to-blue-400/40 backdrop-blur-sm rounded-xl px-4 py-2 hover:from-blue-200/50 hover:to-blue-300/50 transition-all duration-200 flex items-center gap-2 border border-white/20 shadow-sm"
@@ -905,7 +1076,7 @@ export default function FruitNinjaGame() {
           )}
 
           <div className="bg-gradient-to-r from-slate-600/60 to-slate-700/60 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20 shadow-sm">
-            <span className="text-white text-xl font-bold drop-shadow-sm">Score: {score} PTS</span>
+            <span className="text-white text-xl font-bold drop-shadow-sm">{score} pts</span>
           </div>
           <div
             className={`bg-gradient-to-r from-slate-600/60 to-slate-700/60 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20 shadow-sm ${
@@ -914,6 +1085,20 @@ export default function FruitNinjaGame() {
           >
             <span className="text-white text-xl font-bold drop-shadow-sm">Time: {formatTime(timeLeft)}</span>
           </div>
+          <button
+            onClick={showIntroAndPause}
+            className="bg-gradient-to-r from-blue-300/40 to-blue-400/40 backdrop-blur-sm rounded-xl px-4 py-2 hover:from-blue-200/50 hover:to-blue-300/50 transition-all duration-200 flex items-center gap-2 border border-white/20 shadow-sm"
+            title="Help & Instructions"
+          >
+            <svg className="w-5 h-5 text-white drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </button>
         </div>
       </div>
     </div>
