@@ -953,6 +953,7 @@ export default function FruitNinjaGame() {
                     src={iconSrc || "/placeholder.svg"}
                     alt={block.iconType}
                     className="w-full h-full object-contain"
+                    draggable="false"
                   />
                 </div>
 
