@@ -272,12 +272,12 @@ export default function FruitNinjaGame() {
   const showIntroAndPause = useCallback(() => {
     if (gameState === "playing") {
       setGameState("paused")
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current)
+        timerIntervalRef.current = null
+      }
+      setShowIntroModal(true)
     }
-    if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current)
-      timerIntervalRef.current = null
-    }
-    setShowIntroModal(true)
   }, [gameState])
 
   // Close intro modal and resume game
@@ -285,23 +285,23 @@ export default function FruitNinjaGame() {
     setShowIntroModal(false)
     if (gameState === "paused") {
       setGameState("playing")
-    }
-    timerIntervalRef.current =
+      timerIntervalRef.current =
       setInterval(() => {
-            setTimeLeft((prevTime) => {
-              const newTime = prevTime - 1
+        setTimeLeft((prevTime) => {
+          const newTime = prevTime - 1
 
-              // Update spawn rate based on time left
-              updateSpawnRate(newTime)
+          // Update spawn rate based on time left
+          updateSpawnRate(newTime)
 
-              if (newTime <= 0) {
-                // Game over when timer reaches 0
-                endGame()
-                return 0
-              }
-              return newTime
-            })
-          }, 1000)
+          if (newTime <= 0) {
+            // Game over when timer reaches 0
+            endGame()
+            return 0
+          }
+          return newTime
+        })
+      }, 1000)
+    }
   }, [gameState])
 
   // Check for expired red blocks every second
