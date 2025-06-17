@@ -911,7 +911,8 @@ export default function FruitNinjaGame() {
       `}</style>
 
       {/* Game Controls */}
-      <div className="absolute z-50 top-4 right-4 flex gap-2 flex-col">
+      {/* DO NOT REMOVE THIS IS FOR DEBUGGING */}
+      {/* <div className="absolute z-50 top-4 right-4 flex gap-2 flex-col">
         {gameState === "playing" && (
           <>
             <button onClick={stopGame} className="z-50 system-button system-button-red">
@@ -925,7 +926,7 @@ export default function FruitNinjaGame() {
             </button>
           </>
         )}
-      </div>
+      </div> */}
 
       {/* Instructions */}
       {gameState === "waiting" && (
@@ -1437,7 +1438,7 @@ export default function FruitNinjaGame() {
           </div>
 
           {/* Player name display */}
-          {playerName && (
+          {(playerName && !isMobile) && (
             <div className="bg-gradient-to-r from-blue-300/40 to-blue-400/40 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20 shadow-sm">
               <span className="text-white text-sm font-medium drop-shadow-sm">Player: {playerName}</span>
             </div>
@@ -1446,7 +1447,7 @@ export default function FruitNinjaGame() {
 
         <div className="flex items-center gap-4 p-2">
           {/* Difficulty indicator - only show during gameplay */}
-          {gameState === "playing" && (
+          {(gameState === "playing" && !isMobile) && (
             <div
               className={`backdrop-blur-sm rounded-xl px-4 py-2 border shadow-sm transition-all duration-300 ${
                 spawnRateMultiplierRef.current === 1
