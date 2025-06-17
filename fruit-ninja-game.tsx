@@ -331,7 +331,7 @@ export default function FruitNinjaGame() {
     let title: string
     let description: string
 
-    if (rand < 0.15) {
+    if (rand < 0.10) {
       // 15% chance for bonus (yellow)
       blockType = "bonus"
       color = colors.yellow
@@ -1499,7 +1499,7 @@ export default function FruitNinjaGame() {
           )}
 
           {/* Score */}
-          <div className="bg-gradient-to-r from-blue-300/40 to-blue-400/40 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20 shadow-sm">
+          <div className="bg-gradient-to-r from-slate-600/60 to-slate-700/60 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20 shadow-sm">
             {!isMobile && <span className="text-white text-sm font-medium drop-shadow-sm">Score:</span>}
             <span
               className={`text-white text-xl font-bold ${!isMobile ? "ml-2" : ""} drop-shadow-md ${
@@ -1511,7 +1511,7 @@ export default function FruitNinjaGame() {
           </div>
 
           {/* Timer */}
-          <div className="bg-gradient-to-r from-blue-300/40 to-blue-400/40 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20 shadow-sm">
+          <div className="bg-gradient-to-r from-slate-600/60 to-slate-700/60 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20 shadow-sm">
             {!isMobile && <span className="text-white text-sm font-medium drop-shadow-sm">Time:</span>}
             <span
               className={`text-white text-xl font-bold ${!isMobile ? "ml-2" : ""} drop-shadow-md ${
@@ -1525,7 +1525,7 @@ export default function FruitNinjaGame() {
           {/* Help button */}
           <button
             onClick={showIntroAndPause}
-            className="bg-gradient-to-r from-blue-600/40 to-blue-400/40 backdrop-blur-sm rounded-xl px-4 py-2 hover:from-blue-200/50 hover:to-blue-300/50 transition-all duration-200 flex items-center gap-2 border border-white/20 shadow-sm"
+            className="bg-gradient-to-r from-purple-600/40 to-purple-400/40 backdrop-blur-sm rounded-xl px-4 py-2 hover:from-blue-200/50 hover:to-blue-300/50 transition-all duration-200 flex items-center gap-2 border border-white/20 shadow-sm"
             title="Help"
           >
             <svg className="w-5 h-5 text-white drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
