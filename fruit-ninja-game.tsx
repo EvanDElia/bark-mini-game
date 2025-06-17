@@ -4,6 +4,7 @@ import type React from "react"
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Folder } from "./components/folder"
 import { FolderGenerator } from "./utils/folder-generator"
+import { saveScore, fetchGlobalScores, type SupabaseScore } from "./lib/supabase"
 
 interface Block {
   id: string
@@ -18,6 +19,7 @@ interface Block {
   title: string
   description: string
   iconType: "star" | "people" | "skull"
+  points: number
 }
 
 interface MousePosition {
@@ -64,24 +66,59 @@ export default function FruitNinjaGame() {
   const spawnRateMultiplierRef = useRef<number>(1) // Track spawn rate multiplier: 1 = normal, 2 = twice as fast, 3 = three times as fast
   const baseSpawnIntervalRef = useRef<number>(1500 + Math.random() * 400) // Base spawn interval in ms (1000ms + 500ms random)
   const [showIntroModal, setShowIntroModal] = useState(false)
+  const [playerName, setPlayerName] = useState<string>("")
+  const [globalScores, setGlobalScores] = useState<SupabaseScore[]>([])
+  const [globalScoresPage, setGlobalScoresPage] = useState(0)
+  const [globalScoresTotal, setGlobalScoresTotal] = useState(0)
+  const [isLoadingGlobalScores, setIsLoadingGlobalScores] = useState(false)
+  const [showNameInputModal, setShowNameInputModal] = useState(false)
+  const [tempPlayerName, setTempPlayerName] = useState("")
+  const [isMobile, setIsMobile] = useState(false)
+  const [isTouchDevice, setIsTouchDevice] = useState(false)
 
-  // Block titles and descriptions
-  const blockTitles = ["Task", "Project", "Meeting", "Reminder", "Event", "Alert", "Update", "Message"]
-
-  const blockDescriptions = [
-    "High priority",
-    "Due today",
+  // Block titles and descriptions for each type
+  const regularTitles = ["Email", "Message", "Update", "Reminder", "Event", "Meeting", "Task", "Project"]
+  const regularDescriptions = [
+    "New message",
+    "Important update",
     "Needs review",
     "In progress",
     "Completed",
-    "New item",
     "Pending",
-    "Urgent",
+    "High priority",
+    "Due today",
   ]
 
-  const dangerTitles = ["Warning", "Danger", "Critical", "Alert", "Error"]
+  const bonusTitles = ["Bonus", "Achievement", "Reward", "Prize", "Gift", "Special", "Premium", "VIP"]
+  const bonusDescriptions = [
+    "Extra points!",
+    "Bonus reward",
+    "Special offer",
+    "Premium content",
+    "Achievement unlocked",
+    "Rare find",
+    "Lucky bonus",
+    "Super reward",
+  ]
 
-  const dangerDescriptions = ["System failure", "Security breach", "Fatal error", "Data loss", "Malfunction"]
+  const spamTitles = ["Spam", "Virus", "Malware", "Phishing", "Scam", "Threat", "Warning", "Alert"]
+  const spamDescriptions = [
+    "Malicious content",
+    "Security threat",
+    "Virus detected",
+    "Phishing attempt",
+    "Spam message",
+    "Dangerous link",
+    "Malware alert",
+    "Scam warning",
+  ]
+
+  // Only 3 colors now: Blue, Yellow, Red
+  const colors = {
+    blue: "#45b7d1", // Regular notifications - people icon - +10 points
+    yellow: "#feca57", // Bonus notifications - star icon - +25 points
+    red: "#ff6b6b", // Spam notifications - skull icon - -25 points
+  }
 
   // Initialize folder generator
   useEffect(() => {
@@ -91,6 +128,12 @@ export default function FruitNinjaGame() {
     if (folderGeneratorRef.current) {
       const initialFolders = folderGeneratorRef.current.generateRandomFolders(8)
       setFolders(initialFolders)
+    }
+
+    // Load player name from localStorage
+    const savedPlayerName = localStorage.getItem("barkGamePlayerName")
+    if (savedPlayerName) {
+      setPlayerName(savedPlayerName)
     }
   }, [])
 
@@ -107,6 +150,68 @@ export default function FruitNinjaGame() {
       }
     }
   }, [])
+
+  // Load global scores when tab is active
+  useEffect(() => {
+    if (activeScoreTab === "global" && showScoresModal) {
+      loadGlobalScores()
+    }
+  }, [activeScoreTab, showScoresModal, globalScoresPage])
+
+  // Detect mobile and touch devices
+  useEffect(() => {
+    const checkDeviceType = () => {
+      // Check for mobile device
+      const mobileCheck =
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+        window.innerWidth <= 768
+      setIsMobile(mobileCheck)
+
+      // Check for touch device
+      const touchCheck = "ontouchstart" in window || navigator.maxTouchPoints > 0
+      setIsTouchDevice(touchCheck)
+    }
+
+    checkDeviceType()
+
+    // Re-check on window resize
+    window.addEventListener("resize", checkDeviceType)
+    return () => window.removeEventListener("resize", checkDeviceType)
+  }, [])
+
+  // Load global scores
+  const loadGlobalScores = async () => {
+    setIsLoadingGlobalScores(true)
+    try {
+      const { data, count, error } = await fetchGlobalScores(globalScoresPage, 10)
+      console.log(data, count, error)
+      if (data && !error) {
+        setGlobalScores(data)
+        if (count !== null) {
+          setGlobalScoresTotal(count)
+        }
+      }
+    } catch (error) {
+      console.error("Error loading global scores:", error)
+    } finally {
+      setIsLoadingGlobalScores(false)
+    }
+  }
+
+  // Handle player name submission
+  const handlePlayerNameSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (tempPlayerName.trim()) {
+      setPlayerName(tempPlayerName.trim())
+      localStorage.setItem("barkGamePlayerName", tempPlayerName.trim())
+      setShowNameInputModal(false)
+
+      // If we're at game over, save the score now
+      if (gameState === "gameover") {
+        saveScore(score, tempPlayerName.trim())
+      }
+    }
+  }
 
   // Detect score changes and trigger animations
   useEffect(() => {
@@ -155,11 +260,17 @@ export default function FruitNinjaGame() {
       const isNewHigh = updatedScores.findIndex((score) => score.timestamp === newHighScore.timestamp) < 3
       setIsNewHighScore(isNewHigh)
 
-      console.log(updatedScores)
-
       saveHighScores(updatedScores)
+
+      // Save score to Supabase if player has a name
+      if (playerName) {
+        saveScore(newScore, playerName)
+      } else {
+        // Show name input modal if no player name
+        setShowNameInputModal(true)
+      }
     },
-    [highScores, saveHighScores],
+    [highScores, saveHighScores, playerName],
   )
 
   // Get current high score
@@ -192,13 +303,17 @@ export default function FruitNinjaGame() {
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange)
   }, [])
 
-  const colors = ["#ff6b6b", "#4ecdc4", "#45b7d1", "#96ceb4", "#feca57", "#ff9ff3", "#54a0ff"]
-
   // Format time as MM:SS
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins}:${secs < 10 ? "0" : ""}${secs}`
+  }
+
+  // Format date from ISO string
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString()
   }
 
   // Generate random block
@@ -207,24 +322,40 @@ export default function FruitNinjaGame() {
     const width = window.innerWidth
     const height = window.innerHeight
 
-    // Randomly select color
-    const colorIndex = Math.floor(Math.random() * colors.length)
-    const color = colors[colorIndex]
+    // Determine block type with weighted probabilities
+    const rand = Math.random()
+    let blockType: "regular" | "bonus" | "spam"
+    let color: string
+    let iconType: "star" | "people" | "skull"
+    let points: number
+    let title: string
+    let description: string
 
-    // Determine if this is a red block
-    const isRedBlock = color === "#ff6b6b"
-
-    // Select appropriate title and description based on block type
-    const title = isRedBlock
-      ? dangerTitles[Math.floor(Math.random() * dangerTitles.length)]
-      : blockTitles[Math.floor(Math.random() * blockTitles.length)]
-
-    const description = isRedBlock
-      ? dangerDescriptions[Math.floor(Math.random() * dangerDescriptions.length)]
-      : blockDescriptions[Math.floor(Math.random() * blockDescriptions.length)]
-
-    // Determine icon type
-    const iconType = isRedBlock ? "skull" : Math.random() > 0.5 ? "star" : "people"
+    if (rand < 0.15) {
+      // 15% chance for bonus (yellow)
+      blockType = "bonus"
+      color = colors.yellow
+      iconType = "star"
+      points = 25
+      title = bonusTitles[Math.floor(Math.random() * bonusTitles.length)]
+      description = bonusDescriptions[Math.floor(Math.random() * bonusDescriptions.length)]
+    } else if (rand < 0.35) {
+      // 20% chance for spam (red)
+      blockType = "spam"
+      color = colors.red
+      iconType = "skull"
+      points = -25
+      title = spamTitles[Math.floor(Math.random() * spamTitles.length)]
+      description = spamDescriptions[Math.floor(Math.random() * spamDescriptions.length)]
+    } else {
+      // 65% chance for regular (blue)
+      blockType = "regular"
+      color = colors.blue
+      iconType = "people"
+      points = 10
+      title = regularTitles[Math.floor(Math.random() * regularTitles.length)]
+      description = regularDescriptions[Math.floor(Math.random() * regularDescriptions.length)]
+    }
 
     return {
       id: Math.random().toString(36).substr(2, 9),
@@ -239,8 +370,9 @@ export default function FruitNinjaGame() {
       title: title,
       description: description,
       iconType: iconType,
+      points: points,
     }
-  }, [colors, blockTitles, blockDescriptions, dangerTitles, dangerDescriptions])
+  }, [])
 
   // Manual spawn for testing
   const spawnTestBlock = useCallback(() => {
@@ -249,15 +381,17 @@ export default function FruitNinjaGame() {
     setBlocks((prev) => [...prev, newBlock])
   }, [generateBlock])
 
-  // Update spawn rate based on time left
+  // Update spawn rate based on time left - Updated intervals
   const updateSpawnRate = useCallback(
     (secondsLeft: number) => {
       let newMultiplier = 1
 
-      if (secondsLeft <= 10) {
-        newMultiplier = 3 // Three times as fast when 10 seconds or less remain
+      if (secondsLeft <= 15) {
+        newMultiplier = 4 // Three times as fast when 30 seconds or less remain
       } else if (secondsLeft <= 30) {
-        newMultiplier = 2 // Twice as fast when 30 seconds or less remain
+        newMultiplier = 3 // Three times as fast when 30 seconds or less remain
+      } else if (secondsLeft <= 45) {
+        newMultiplier = 2 // Twice as fast when 45 seconds or less remain
       }
 
       // Only update if the multiplier has changed
@@ -275,7 +409,7 @@ export default function FruitNinjaGame() {
           spawnIntervalRef.current = setInterval(() => {
             setBlocks((prev) => {
               const filtered = prev.filter((block) => !block.isSliced && !block.isAnimatingOut)
-              if (filtered.length < 5) {
+              if (filtered.length < 10) {
                 const newBlock = generateBlock()
                 return [...filtered, newBlock]
               }
@@ -334,7 +468,7 @@ export default function FruitNinjaGame() {
           prev.map((block) => {
             // If it's a red block and it's been 8 seconds since spawn, mark it for removal
             if (
-              block.color === "#ff6b6b" &&
+              block.color === colors.red &&
               !block.isSliced &&
               !block.isAnimatingOut &&
               currentTime - block.spawnTime >= 8000
@@ -394,7 +528,7 @@ export default function FruitNinjaGame() {
     spawnIntervalRef.current = setInterval(() => {
       setBlocks((prev) => {
         const filtered = prev.filter((block) => !block.isSliced && !block.isAnimatingOut)
-        if (filtered.length < 5) {
+        if (filtered.length < 10) {
           const newBlock = generateBlock()
           return [...filtered, newBlock]
         }
@@ -537,12 +671,8 @@ export default function FruitNinjaGame() {
       setBlocks((prev) =>
         prev.map((block) => {
           if (!block.isSliced && !block.isAnimatingOut && checkCollision(mousePosition, block)) {
-            // Check if the block is red (#ff6b6b) and apply negative points
-            if (block.color === "#ff6b6b") {
-              setScore((s) => s - 10) // Negative points for red blocks
-            } else {
-              setScore((s) => s + 10) // Positive points for other colors
-            }
+            // Use the block's points value
+            setScore((s) => s + block.points)
             return { ...block, isSliced: true, isAnimatingOut: true }
           }
           return block
@@ -594,6 +724,8 @@ export default function FruitNinjaGame() {
         return "Fast"
       case 3:
         return "Extreme"
+      case 4:
+        return "Insane"
       default:
         return "Normal"
     }
@@ -718,17 +850,21 @@ export default function FruitNinjaGame() {
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 
                       inset 0 1px 0 rgba(255, 255, 255, 0.2);
           transition: all 0.2s;
+          position: relative;
         }
 
         .system-button:hover {
           background: linear-gradient(to bottom, #4299e1, #3182ce);
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3), 
-                      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+                      inset 0 1px 0 rgba(255, 255, 255, 0.3),
+                      inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+          transform: translateY(-1px);
         }
 
         .system-button:active {
           background: linear-gradient(to bottom, #2b6cb0, #2c5282);
-          box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+          box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3),
+                      inset 0 1px 0 rgba(255, 255, 255, 0.1);
           transform: translateY(1px);
         }
 
@@ -738,6 +874,9 @@ export default function FruitNinjaGame() {
 
         .system-button-green:hover {
           background: linear-gradient(to bottom, #48bb78, #38a169);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3), 
+                      inset 0 1px 0 rgba(255, 255, 255, 0.3),
+                      inset 0 -1px 0 rgba(0, 0, 0, 0.1);
         }
 
         .system-button-green:active {
@@ -750,10 +889,24 @@ export default function FruitNinjaGame() {
 
         .system-button-red:hover {
           background: linear-gradient(to bottom, #f56565, #e53e3e);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3), 
+                      inset 0 1px 0 rgba(255, 255, 255, 0.3),
+                      inset 0 -1px 0 rgba(0, 0, 0, 0.1);
         }
-
-        .system-button-red:active {
-          background: linear-gradient(to bottom, #c53030, #9b2c2c);
+        
+        .system-input {
+          border: 1px solid #cbd5e0;
+          border-radius: 4px;
+          padding: 8px 12px;
+          width: 100%;
+          font-size: 16px;
+          transition: all 0.2s;
+        }
+        
+        .system-input:focus {
+          outline: none;
+          border-color: #3182ce;
+          box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.3);
         }
       `}</style>
 
@@ -784,26 +937,34 @@ export default function FruitNinjaGame() {
             <div className="system-modal-content p-8 text-center">
               <h1 className="text-slate-800 text-4xl font-bold mb-4">BARK Mini-Game</h1>
               <p className="text-slate-700 text-lg mb-4">
-                Click and drag your mouse over the colored blocks to close them and earn points!
+                {isTouchDevice ? "Tap and drag your finger" : "Click and drag your mouse"} over the colored blocks to
+                close them and earn points!
               </p>
               <p className="text-slate-700 text-lg mb-4">You have 60 seconds to score as many points as possible!</p>
 
               <div className="flex flex-col gap-3 mb-6">
                 <div className="bg-blue-50 rounded-xl p-4 border border-blue-200 text-left">
-                  <h3 className="text-slate-800 font-bold mb-2 text-lg">Game Rules:</h3>
+                  <h3 className="text-slate-800 font-bold mb-2 text-lg">Notification Types:</h3>
                   <ul className="list-disc pl-5 space-y-2 text-slate-700">
                     <li>
-                      Regular colored blocks: <span className="text-slate-900 font-bold">+10 points</span>
+                      <span className="inline-block w-4 h-4 bg-[#45b7d1] rounded-full mr-2 align-middle"></span>
+                      <span className="text-blue-600 font-bold">Blue notifications: +10 points</span> (regular messages)
+                    </li>
+                    <li>
+                      <span className="inline-block w-4 h-4 bg-[#feca57] rounded-full mr-2 align-middle"></span>
+                      <span className="text-yellow-600 font-bold">Yellow notifications: +25 points</span> (bonus
+                      rewards!)
                     </li>
                     <li>
                       <span className="inline-block w-4 h-4 bg-[#ff6b6b] rounded-full mr-2 align-middle"></span>
-                      <span className="text-red-600 font-bold">Red blocks: -10 points</span> (avoid these!)
+                      <span className="text-red-600 font-bold">Red notifications: -25 points</span> (spam - avoid
+                      these!)
                     </li>
                     <li>
-                      <span className="text-amber-600 font-bold">Red blocks disappear after 8 seconds</span>
+                      <span className="text-amber-600 font-bold">Red notifications disappear after 8 seconds</span>
                     </li>
                     <li>
-                      <span className="text-blue-600 font-bold">Blocks spawn faster</span> as time runs out!
+                      <span className="text-blue-600 font-bold">Speed increases at 45s, 30s, and 15s remaining!</span>
                     </li>
                   </ul>
                 </div>
@@ -817,9 +978,49 @@ export default function FruitNinjaGame() {
                 </div>
               )}
 
-              <button onClick={startGame} className="system-button system-button-green text-xl px-8 py-3">
-                Start Playing
-              </button>
+              <div className="flex gap-4">
+                <button onClick={startGame} className="system-button system-button-green text-xl px-8 py-3 flex-1">
+                  Start Playing
+                </button>
+                <button onClick={() => setShowScoresModal(true)} className="system-button text-xl px-8 py-3 flex-1">
+                  View Scores
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Player Name Input Modal */}
+      {showNameInputModal && (
+        <div className="absolute inset-0 flex items-center justify-center z-[60] bg-black/50">
+          <div className="system-modal max-w-md w-full">
+            <div className="system-modal-header">
+              <h1 className="system-modal-title text-2xl">Enter Your Name</h1>
+            </div>
+            <div className="system-modal-content p-6">
+              <form onSubmit={handlePlayerNameSubmit}>
+                <p className="text-slate-700 mb-4">Enter your name to save your score to the global leaderboard!</p>
+                <div className="mb-4">
+                  <input
+                    type="text"
+                    className="system-input"
+                    placeholder="Your name"
+                    value={tempPlayerName}
+                    onChange={(e) => setTempPlayerName(e.target.value)}
+                    maxLength={20}
+                    autoFocus
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <button type="submit" className="system-button system-button-green flex-1">
+                    Save Score
+                  </button>
+                  <button type="button" onClick={() => setShowNameInputModal(false)} className="system-button flex-1">
+                    Skip
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
@@ -838,26 +1039,34 @@ export default function FruitNinjaGame() {
             <div className="system-modal-content p-8 text-center">
               <h1 className="text-slate-800 text-4xl font-bold mb-4">Game Instructions</h1>
               <p className="text-slate-700 text-lg mb-4">
-                Click and drag your mouse over the colored blocks to close them and earn points!
+                {isTouchDevice ? "Tap and drag your finger" : "Click and drag your mouse"} over the colored blocks to
+                close them and earn points!
               </p>
               <p className="text-slate-700 text-lg mb-4">You have 60 seconds to score as many points as possible!</p>
 
               <div className="flex flex-col gap-3 mb-6">
                 <div className="bg-blue-50 rounded-xl p-4 border border-blue-200 text-left">
-                  <h3 className="text-slate-800 font-bold mb-2 text-lg">Game Rules:</h3>
+                  <h3 className="text-slate-800 font-bold mb-2 text-lg">Notification Types:</h3>
                   <ul className="list-disc pl-5 space-y-2 text-slate-700">
                     <li>
-                      Regular colored blocks: <span className="text-slate-900 font-bold">+10 points</span>
+                      <span className="inline-block w-4 h-4 bg-[#45b7d1] rounded-full mr-2 align-middle"></span>
+                      <span className="text-blue-600 font-bold">Blue notifications: +10 points</span> (regular messages)
+                    </li>
+                    <li>
+                      <span className="inline-block w-4 h-4 bg-[#feca57] rounded-full mr-2 align-middle"></span>
+                      <span className="text-yellow-600 font-bold">Yellow notifications: +25 points</span> (bonus
+                      rewards!)
                     </li>
                     <li>
                       <span className="inline-block w-4 h-4 bg-[#ff6b6b] rounded-full mr-2 align-middle"></span>
-                      <span className="text-red-600 font-bold">Red blocks: -10 points</span> (avoid these!)
+                      <span className="text-red-600 font-bold">Red notifications: -25 points</span> (spam - avoid
+                      these!)
                     </li>
                     <li>
-                      <span className="text-amber-600 font-bold">Red blocks disappear after 8 seconds</span>
+                      <span className="text-amber-600 font-bold">Red notifications disappear after 8 seconds</span>
                     </li>
                     <li>
-                      <span className="text-blue-600 font-bold">Blocks spawn faster</span> as time runs out!
+                      <span className="text-blue-600 font-bold">Speed increases at 45s, 30s, and 15s remaining!</span>
                     </li>
                   </ul>
                 </div>
@@ -995,12 +1204,83 @@ export default function FruitNinjaGame() {
                 )}
 
                 {activeScoreTab === "global" && (
-                  <div className="text-center py-12">
-                    <div className="text-slate-500 text-xl mb-2">Global Leaderboard</div>
-                    <div className="text-slate-400">Coming soon...</div>
-                    <div className="mt-6 text-slate-300 text-sm">
-                      Global scores will be available in a future update!
-                    </div>
+                  <div>
+                    {isLoadingGlobalScores ? (
+                      <div className="text-center py-12">
+                        <div className="text-slate-500 text-xl mb-2">Loading scores...</div>
+                        <div className="animate-pulse mt-4 flex justify-center">
+                          <div className="h-4 w-32 bg-slate-300 rounded"></div>
+                        </div>
+                      </div>
+                    ) : globalScores.length > 0 ? (
+                      <>
+                        <div className="space-y-3 mb-6">
+                          {globalScores.map((score, index) => (
+                            <div
+                              key={score.id}
+                              className="bg-blue-50 rounded-xl p-4 border border-blue-200 flex justify-between items-center"
+                            >
+                              <div className="flex items-center gap-4">
+                                <div className="w-8 h-8 bg-gradient-to-r from-amber-400 to-amber-500 rounded-full flex items-center justify-center font-bold text-white text-sm">
+                                  #{globalScoresPage * 10 + index + 1}
+                                </div>
+                                <div>
+                                  <div className="text-slate-800 text-xl font-bold">{score.score}</div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-slate-500 text-sm">{score.name}</span>
+                                    <span className="text-slate-400 text-xs">•</span>
+                                    <span className="text-slate-400 text-xs">
+                                      {score.created_at ? formatDate(score.created_at) : ""}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              {globalScoresPage === 0 && index === 0 && (
+                                <div className="text-amber-500 text-2xl">👑</div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Pagination */}
+                        {globalScoresTotal > 10 && (
+                          <div className="flex justify-between items-center mt-4">
+                            <button
+                              onClick={() => setGlobalScoresPage(Math.max(0, globalScoresPage - 1))}
+                              disabled={globalScoresPage === 0}
+                              className={`system-button px-4 py-2 ${
+                                globalScoresPage === 0 ? "opacity-50 cursor-not-allowed" : ""
+                              }`}
+                            >
+                              Previous
+                            </button>
+                            <span className="text-slate-600">
+                              Page {globalScoresPage + 1} of {Math.ceil(globalScoresTotal / 10)}
+                            </span>
+                            <button
+                              onClick={() =>
+                                setGlobalScoresPage(
+                                  Math.min(Math.ceil(globalScoresTotal / 10) - 1, globalScoresPage + 1),
+                                )
+                              }
+                              disabled={globalScoresPage >= Math.ceil(globalScoresTotal / 10) - 1}
+                              className={`system-button px-4 py-2 ${
+                                globalScoresPage >= Math.ceil(globalScoresTotal / 10) - 1
+                                  ? "opacity-50 cursor-not-allowed"
+                                  : ""
+                              }`}
+                            >
+                              Next
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-center py-12">
+                        <div className="text-slate-500 text-xl mb-2">No global scores yet!</div>
+                        <div className="text-slate-400">Be the first to set a high score!</div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1019,7 +1299,7 @@ export default function FruitNinjaGame() {
       {/* Game Area */}
       <div
         ref={gameAreaRef}
-        className={`w-full h-full relative ${gameState === "playing" ? "cursor-none" : "cursor-default"} pb-20 z-10 select-none`}
+        className={`w-full h-full relative ${gameState === "playing" && !isTouchDevice ? "cursor-none" : "cursor-default"} pb-20 z-10 select-none`}
         onMouseMove={handleMouseMove}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
@@ -1155,6 +1435,13 @@ export default function FruitNinjaGame() {
               <img src="/bark-logo.svg" alt="BARK Logo" className="w-full h-full object-contain" />
             </div>
           </div>
+
+          {/* Player name display */}
+          {playerName && (
+            <div className="bg-gradient-to-r from-blue-300/40 to-blue-400/40 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20 shadow-sm">
+              <span className="text-white text-sm font-medium drop-shadow-sm">Player: {playerName}</span>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-4 p-2">
@@ -1173,60 +1460,73 @@ export default function FruitNinjaGame() {
             </div>
           )}
 
-          <button
-            onClick={toggleFullscreen}
-            className="bg-gradient-to-r from-blue-600/40 to-blue-400/40 backdrop-blur-sm rounded-xl px-4 py-2 hover:from-blue-200/50 hover:to-blue-300/50 transition-all duration-200 flex items-center gap-2 border border-white/20 shadow-sm"
-            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-          >
-            {isFullscreen ? (
-              <svg className="w-5 h-5 text-white drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M15 15v4.5M15 15h4.5M15 15l5.25 5.25"
-                />
-              </svg>
-            ) : (
-              <svg className="w-5 h-5 text-white drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 20 20">
-                <path
-                  fill="#ffffff"
-                  d="m13.28 7.78l3.22-3.22v2.69a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.69l-3.22 3.22a.75.75 0 0 0 1.06 1.06ZM2 17.25v-4.5a.75.75 0 0 1 1.5 0v2.69l3.22-3.22a.75.75 0 0 1 1.06 1.06L4.56 16.5h2.69a.75.75 0 0 1 0 1.5h-4.5a.747.747 0 0 1-.75-.75Zm10.22-3.97l3.22 3.22h-2.69a.75.75 0 0 0 0 1.5h4.5a.747.747 0 0 0 .75-.75v-4.5a.75.75 0 0 0-1.5 0v2.69l-3.22-3.22a.75.75 0 1 0-1.06 1.06ZM3.5 4.56l3.22 3.22a.75.75 0 0 0 1.06-1.06L4.56 3.5h2.69a.75.75 0 0 0 0-1.5h-4.5a.75.75 0 0 0-.75.75v4.5a.75.75 0 0 0 1.5 0V4.56Z"
-                ></path>
-              </svg>
-            )}
-            <span className="text-white text-sm font-medium drop-shadow-sm">
-              {isFullscreen ? "Exit" : "Fullscreen"}
-            </span>
-          </button>
-
-          {/* High Score Display in Footer */}
-          {getCurrentHighScore() > 0 && (
-            <div className="bg-gradient-to-r from-yellow-500/40 to-orange-500/40 backdrop-blur-sm rounded-xl px-4 py-2 border border-yellow-300/30 shadow-sm">
-              <span className="text-white text-sm font-medium drop-shadow-sm">Best: {getCurrentHighScore()}</span>
-            </div>
+          {!isMobile && (
+            <button
+              onClick={toggleFullscreen}
+              className="bg-gradient-to-r from-blue-600/40 to-blue-400/40 backdrop-blur-sm rounded-xl px-4 py-2 hover:from-blue-200/50 hover:to-blue-300/50 transition-all duration-200 flex items-center gap-2 border border-white/20 shadow-sm"
+              title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+            >
+              {isFullscreen ? (
+                <svg
+                  className="w-5 h-5 text-white drop-shadow-sm"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M15 9V4.5M15 9H19.5M15 9L20.25 3.75M9 15V19.5M9 15H4.5M9 15L3.75 20.25M15 15V19.5M15 15H19.5M15 15L20.25 20.25"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  className="w-5 h-5 text-white drop-shadow-sm"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"
+                  />
+                </svg>
+              )}
+            </button>
           )}
 
-          <div className="bg-gradient-to-r from-slate-600/60 to-slate-700/60 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20 shadow-sm">
+          {/* Score */}
+          <div className="bg-gradient-to-r from-blue-300/40 to-blue-400/40 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20 shadow-sm">
+            {!isMobile && <span className="text-white text-sm font-medium drop-shadow-sm">Score:</span>}
             <span
-              className={`text-white text-xl font-bold drop-shadow-sm ${
+              className={`text-white text-xl font-bold ${!isMobile ? "ml-2" : ""} drop-shadow-md ${
                 scoreAnimation === "increase" ? "score-increase" : scoreAnimation === "decrease" ? "score-decrease" : ""
               }`}
             >
-              {score} pts
+              {score}
             </span>
           </div>
-          <div
-            className={`bg-gradient-to-r from-slate-600/60 to-slate-700/60 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20 shadow-sm ${
-              timeLeft <= 10 ? "animate-pulse from-red-500/60 to-red-600/60" : ""
-            }`}
-          >
-            <span className="text-white text-xl font-bold drop-shadow-sm">Time: {formatTime(timeLeft)}</span>
+
+          {/* Timer */}
+          <div className="bg-gradient-to-r from-blue-300/40 to-blue-400/40 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20 shadow-sm">
+            {!isMobile && <span className="text-white text-sm font-medium drop-shadow-sm">Time:</span>}
+            <span
+              className={`text-white text-xl font-bold ${!isMobile ? "ml-2" : ""} drop-shadow-md ${
+                timeLeft <= 10 ? "text-red-300 animate-pulse" : ""
+              }`}
+            >
+              {formatTime(timeLeft)}
+            </span>
           </div>
+
+          {/* Help button */}
           <button
             onClick={showIntroAndPause}
-            className="bg-gradient-to-r from-blue-300/40 to-blue-400/40 backdrop-blur-sm rounded-xl px-4 py-2 hover:from-blue-200/50 hover:to-blue-300/50 transition-all duration-200 flex items-center gap-2 border border-white/20 shadow-sm"
-            title="Help & Instructions"
+            className="bg-gradient-to-r from-blue-600/40 to-blue-400/40 backdrop-blur-sm rounded-xl px-4 py-2 hover:from-blue-200/50 hover:to-blue-300/50 transition-all duration-200 flex items-center gap-2 border border-white/20 shadow-sm"
+            title="Help"
           >
             <svg className="w-5 h-5 text-white drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -1237,6 +1537,18 @@ export default function FruitNinjaGame() {
               />
             </svg>
           </button>
+
+          {/* Start button - only show when not playing */}
+          {gameState !== "playing" && (
+            <button
+              onClick={startGame}
+              className="bg-gradient-to-r from-green-600/40 to-green-400/40 backdrop-blur-sm rounded-xl px-6 py-2 hover:from-green-500/50 hover:to-green-300/50 transition-all duration-200 border border-white/20 shadow-sm"
+            >
+              <span className="text-white font-bold drop-shadow-sm">
+                {gameState === "waiting" ? "Start" : gameState === "gameover" ? "Play Again" : "Resume"}
+              </span>
+            </button>
+          )}
         </div>
       </div>
     </div>
