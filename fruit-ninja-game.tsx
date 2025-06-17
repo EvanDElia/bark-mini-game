@@ -1525,7 +1525,7 @@ export default function FruitNinjaGame() {
           {/* Help button */}
           <button
             onClick={showIntroAndPause}
-            className="bg-gradient-to-r from-purple-600/40 to-purple-400/40 backdrop-blur-sm rounded-xl px-4 py-2 hover:from-blue-200/50 hover:to-blue-300/50 transition-all duration-200 flex items-center gap-2 border border-white/20 shadow-sm"
+            className="bg-gradient-to-r from-purple-600/60 to-purple-700/60 backdrop-blur-sm rounded-xl px-4 py-2 hover:from-blue-200/50 hover:to-blue-300/50 transition-all duration-200 flex items-center gap-2 border border-white/20 shadow-sm"
             title="Help"
           >
             <svg className="w-5 h-5 text-white drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
