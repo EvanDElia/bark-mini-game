@@ -733,7 +733,7 @@ export default function FruitNinjaGame() {
 
   return (
     <div
-      className="w-full h-screen overflow-hidden relative"
+      className="w-full h-dvh overflow-hidden relative"
       style={{
         backgroundImage: "url(/background.png)",
         backgroundSize: "cover",
@@ -937,7 +937,7 @@ export default function FruitNinjaGame() {
             <div className="system-modal-content p-8 text-center">
               <h1 className="text-slate-800 text-4xl font-bold mb-4">BARK Mini-Game</h1>
               <p className="text-slate-700 text-lg mb-4">
-                {isTouchDevice ? "Tap and drag your finger" : "Click and drag your mouse"} over the colored blocks to
+                {isTouchDevice ? "Tap your finger" : "Click and drag your mouse"} over the colored blocks to
                 close them and earn points!
               </p>
               <p className="text-slate-700 text-lg mb-4">You have 60 seconds to score as many points as possible!</p>
@@ -1539,7 +1539,7 @@ export default function FruitNinjaGame() {
           </button>
 
           {/* Start button - only show when not playing */}
-          {gameState !== "playing" && (
+          {(gameState !== "playing" && !isMobile) && (
             <button
               onClick={startGame}
               className="bg-gradient-to-r from-green-600/40 to-green-400/40 backdrop-blur-sm rounded-xl px-6 py-2 hover:from-green-500/50 hover:to-green-300/50 transition-all duration-200 border border-white/20 shadow-sm"
